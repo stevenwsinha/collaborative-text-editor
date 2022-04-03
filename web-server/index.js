@@ -32,6 +32,7 @@ doc.subscribe(function(err){
 
 doc.on('op', function(op, source) {
     console.log(`ShareDB finished applying op from ${source}. Propogating change to all other clients`)
+    console.log(`Sending op list: ${op}`)
     num_clients = sessionIds.length
 
     for (let i = 0; i < num_clients; i ++) {
@@ -67,6 +68,7 @@ app.get('/connect/:id', function(req, res) {
   
       // send starting doc
       data = {content: doc.data.ops}
+      console.log(`Writing starting contents to new connection: ${doc.data.ops}`)
       res.write(`data: ${JSON.stringify(data)}\n\n`)
 })
 
@@ -75,14 +77,24 @@ app.post('/op/:id', function(req, res) {
     connectionId = req.params.id
     oplist = req.body
     doc.submitOp(oplist, {source: connectionId})
+    console.log(`Submitted oplist to sharedb`)
     res.end()
 })
 
 app.get('/doc/:id', function(req, res) {
     console.log(`Recieved doc as html request from ${req.params.id}`)
-    let cfg = {};
-    let converter = new QuillDeltaToHtmlConverter(doc.data, cfg);
-    let html = converter.convert()
+    
+    var cfg = {};
+    var deltaOps = doc.data.ops
+    var converter = new QuillDeltaToHtmlConverter(deltaOps, cfg);
+    
+    var html = converter.convert(); 
+    
+    console.log(`Responding with html: ${html}`)
+
+    res.set({
+        'Content-Type': 'text/html',
+      });
     res.send(html)
 })
 
