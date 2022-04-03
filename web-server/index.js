@@ -57,6 +57,7 @@ app.get('/connect/:id', function(req, res) {
 
     // set up event stream
     res.set({
+        'X-CSE356': '620bd941dd38a6610218bb1b',
         'Cache-Control': 'no-cache',
         'Content-Type': 'text/event-stream',
         'Connection': 'keep-alive'
@@ -78,6 +79,7 @@ app.post('/op/:id', function(req, res) {
     oplist = req.body
     doc.submitOp(oplist, {source: connectionId})
     console.log(`Submitted oplist to sharedb`)
+    res.set({'X-CSE356': '620bd941dd38a6610218bb1b'})
     res.end()
 })
 
@@ -93,6 +95,7 @@ app.get('/doc/:id', function(req, res) {
     console.log(`Responding with html: ${html}`)
 
     res.set({
+        'X-CSE356': '620bd941dd38a6610218bb1b',
         'Content-Type': 'text/html',
       });
     res.send(html)
