@@ -31,6 +31,7 @@ doc.subscribe(function(err){
 })
 
 doc.on('op', function(op, source) {
+    console.log(`ShareDB finished applying op from ${source}. Propogating change to all other clients`)
     num_clients = sessionIds.length
 
     for (let i = 0; i < num_clients; i ++) {
@@ -40,7 +41,6 @@ doc.on('op', function(op, source) {
         res.write(`data: ${JSON.stringify(op)}\n\n`)
     }
 })
-
 
 /*
  *  SET UP EXPRESS MIDDLEWARE/STATIC CONTENT SERVING
@@ -52,6 +52,8 @@ app.use(bodyParser.json());
  *  SET UP EXPRESS ROUTING
  */
 app.get('/connect/:id', function(req, res) {
+    console.log(`Got new connection from id: ${req.params.id}`)
+
     // set up event stream
     res.set({
         'Cache-Control': 'no-cache',
@@ -69,13 +71,15 @@ app.get('/connect/:id', function(req, res) {
 })
 
 app.post('/op/:id', function(req, res) {
+    console.log(`Received operation from: ${req.params.id}. oplist: ${req.body}`)
     connectionId = req.params.id
-    oplist = req.body.payload.ops
-    doc.submitOp(req.body.payload.ops, {source: connectionId})
-    res.end
+    oplist = req.body
+    doc.submitOp(oplist, {source: connectionId})
+    res.end()
 })
 
 app.get('/doc/:id', function(req, res) {
+    console.log(`Recieved doc as html request from ${req.params.id}`)
     let cfg = {};
     let converter = new QuillDeltaToHtmlConverter(doc.data, cfg);
     let html = converter.convert()
