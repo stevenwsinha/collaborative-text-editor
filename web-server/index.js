@@ -5,9 +5,15 @@ const express = require('express')
 const bodyParser = require('body-parser')
 const sharedbClient = require('sharedb/lib/client')
 const richText = require('rich-text');
+var QuillDeltaToHtmlConverter = require('quill-delta-to-html').QuillDeltaToHtmlConverter;
 const WebSocket = require('ws');
 const app = express()
 const PORT = process.env.PORT || 3000
+
+/*
+ *  CREATE LIST OF ACTIVE SESSIONS
+ */
+sessionIds = []
 
 /*
  *  CREATE CONNECTION TO SHAREDB SERVER
@@ -17,17 +23,24 @@ let ws = new WebSocket('ws://localhost:8080');
 let connection = new sharedbClient.Connection(ws);
 
 /*
- *  GET THE DOC
+ *  GET THE DOC AND ADD A .ON HANDLER
  */
 let doc = connection.get('milestone1', 'main')
 doc.subscribe(function(err){
     if (err) throw err;
 })
 
-/*
- *  CREATE LIST OF ACTIVE SESSIONS
- */
-sessionIds = []
+doc.on('op', function(op, source) {
+    num_clients = sessionIds.length
+
+    for (let i = 0; i < num_clients; i ++) {
+        if(sessionIds[i].id === source) continue;
+
+        let res = sessionIds[i].stream;
+        res.write(`data: ${JSON.stringify(op)}\n\n`)
+    }
+})
+
 
 /*
  *  SET UP EXPRESS MIDDLEWARE/STATIC CONTENT SERVING
@@ -39,42 +52,34 @@ app.use(bodyParser.json());
  *  SET UP EXPRESS ROUTING
  */
 app.get('/connect/:id', function(req, res) {
-    connectionId = req.params.id
-    sessionIds.push(connectionId)
-    res.json({
-        payload: doc.data
-    }).send()
+    // set up event stream
+    res.set({
+        'Cache-Control': 'no-cache',
+        'Content-Type': 'text/event-stream',
+        'Connection': 'keep-alive'
+      });
+      res.flushHeaders();
+  
+      // add writable response and id to map
+      sessionIds.push({id: req.params.id, stream: res})
+  
+      // send starting doc
+      data = {content: doc.data.ops}
+      res.write(`data: ${JSON.stringify(data)}\n\n`)
 })
 
 app.post('/op/:id', function(req, res) {
     connectionId = req.params.id
     oplist = req.body.payload.ops
-    doc.submitOp(req.body.payload.ops)
-    res.end()
+    doc.submitOp(req.body.payload.ops, {source: connectionId})
+    res.end
 })
 
 app.get('/doc/:id', function(req, res) {
-    connectionId = req.params.id
-    res.write().end()
+    let cfg = {};
+    let converter = new QuillDeltaToHtmlConverter(doc.data, cfg);
+    let html = converter.convert()
+    res.send(html)
 })
 
 app.listen(PORT, () => console.log(`Server listening on http://localhost:${PORT}`))
-
-function generateDoc() {
-    html = "<html> <body> <p>"
-
-    length = doc.length
-    console.log(doc.length)
-    for (let i = 0; i < length; i++) {
-        oplist = doc[i]
-        if(oplist.length > 1){
-            html += oplist[1].insert
-        }
-        else{
-            html += oplist[0].insert
-        }
-    }
-
-    html += "</p> </body> </html>"
-    return html
-}

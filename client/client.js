@@ -1,4 +1,5 @@
 var connectionId
+var eventtSource
 
 var quill = new Quill('#doc-container', {
     theme: 'snow'
@@ -8,7 +9,7 @@ quill.on('text-change', async function(delta, oldDelta, source) {
     if(source !== 'user') return
     let opsURL = "/op/" + connectionId
     let payload = {payload: delta}
-    console.log(payload)
+
     let response = await fetch(opsURL, {
         method: 'POST',
         headers: {
@@ -42,11 +43,12 @@ window.onload = async function() {
     connectionId = Math.floor(Math.random() * 10000000).toString();
     let connectionURL = "/connect/" + connectionId
     let response = await fetch(connectionURL)
-    let responseJson = await response.json()
-    console.log(responseJson)
-    updateDoc(responseJson.payload.ops)
-}
 
-function updateDoc(doc) {
-    quill.updateContents(doc, 'api')
+    eventSource = new EventSource(connectionURL)
+    console.log('setup event source')
+    eventSource.onmessage = function(msg) {
+        console.log('received msgs')
+        ops = JSON.parse(msg.data).content
+        quill.updateContents(ops, 'api')
+    }
 }
