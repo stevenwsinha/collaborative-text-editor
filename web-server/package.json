@@ -12,6 +12,7 @@
     "body-parser": "^1.19.2",
     "express": "^4.17.3",
     "rich-text": "^4.1.0",
-    "sharedb": "^2.2.5"
+    "sharedb": "^2.2.5",
+    "ws": "^8.5.0"
   }
 }

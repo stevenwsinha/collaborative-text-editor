@@ -3,11 +3,31 @@
  */ 
 const express = require('express')
 const bodyParser = require('body-parser')
+const sharedbClient = require('sharedb/lib/client')
+const richText = require('rich-text');
+const WebSocket = require('ws');
 const app = express()
 const PORT = process.env.PORT || 3000
 
-// creat global doc
-let doc = []
+/*
+ *  CREATE CONNECTION TO SHAREDB SERVER
+ */
+sharedbClient.types.register(richText.type);
+let ws = new WebSocket('ws://localhost:8080');
+let connection = new sharedbClient.Connection(ws);
+
+/*
+ *  GET THE DOC
+ */
+let doc = connection.get('milestone1', 'main')
+doc.subscribe(function(err){
+    if (err) throw err;
+})
+
+/*
+ *  CREATE LIST OF ACTIVE SESSIONS
+ */
+sessionIds = []
 
 /*
  *  SET UP EXPRESS MIDDLEWARE/STATIC CONTENT SERVING
@@ -20,22 +40,22 @@ app.use(bodyParser.json());
  */
 app.get('/connect/:id', function(req, res) {
     connectionId = req.params.id
+    sessionIds.push(connectionId)
     res.json({
-        payload: doc
+        payload: doc.data
     }).send()
 })
 
 app.post('/op/:id', function(req, res) {
     connectionId = req.params.id
     oplist = req.body.payload.ops
-    doc.push(oplist)
+    doc.submitOp(req.body.payload.ops)
     res.end()
 })
 
 app.get('/doc/:id', function(req, res) {
     connectionId = req.params.id
-    doc = generateDoc();
-    res.write(doc).end()
+    res.write().end()
 })
 
 app.listen(PORT, () => console.log(`Server listening on http://localhost:${PORT}`))

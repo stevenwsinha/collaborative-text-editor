@@ -5,8 +5,10 @@ var quill = new Quill('#doc-container', {
 });
 
 quill.on('text-change', async function(delta, oldDelta, source) {
+    if(source !== 'user') return
     let opsURL = "/op/" + connectionId
     let payload = {payload: delta}
+    console.log(payload)
     let response = await fetch(opsURL, {
         method: 'POST',
         headers: {
@@ -42,11 +44,9 @@ window.onload = async function() {
     let response = await fetch(connectionURL)
     let responseJson = await response.json()
     console.log(responseJson)
-    updateDoc(responseJson.payload)
+    updateDoc(responseJson.payload.ops)
 }
 
 function updateDoc(doc) {
-    for (oplist of doc) {
-        quill.updateContents(oplist, 'api')
-    }
+    quill.updateContents(doc, 'api')
 }
