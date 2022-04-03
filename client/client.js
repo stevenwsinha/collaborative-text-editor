@@ -19,22 +19,6 @@ quill.on('text-change', async function(delta, oldDelta, source) {
     })
 })
 
-
-// setInterval(sendQueue, 3000)
-
-// async function sendQueue() {
-//     /* this func is async to ensure it doesn't block
-//      * user input from being added to the queue
-//      * we want to avoid async madness where delta_queue is growing as we
-//      * consolidate it, so we only iterate through its current length
-//      * this works because the queue is monotomically non-decreasing */
-//     let length = delta_queue.length   
-
-//     for(let i = 0; i < length; i++) {
-//         let oplist = delta_queue[i]
-//     }
-// }
-
 /*
  * establish the connection
  */
@@ -45,7 +29,7 @@ window.onload = async function() {
     let response = await fetch(connectionURL)
 
     eventSource = new EventSource(connectionURL)
-    console.log('setup event source')
+
     eventSource.onmessage = function(msg) {
         console.log('received msgs')
         ops = JSON.parse(msg.data).content
