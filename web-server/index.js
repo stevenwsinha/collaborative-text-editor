@@ -8,7 +8,7 @@ const richText = require('rich-text');
 var QuillDeltaToHtmlConverter = require('quill-delta-to-html').QuillDeltaToHtmlConverter;
 const WebSocket = require('ws');
 const app = express()
-const PORT = process.env.PORT || 80
+const PORT = process.env.PORT || 3000
 
 /*
  *  CREATE LIST OF ACTIVE SESSIONS
@@ -33,6 +33,22 @@ doc.subscribe(function(err){
 
 doc.on('op', function(op, source) {
     console.log(`ShareDB finished applying op from ${source}. Propogating change to all other clients`)
+    num_clients = sessionIds.length
+    oplist = []
+    oplist.push(op.ops)
+    console.log(`Sending: data: ${JSON.stringify(oplist)}\n`)
+
+    for (let i = 0; i < num_clients; i ++) {
+        if(sessionIds[i].id === source) continue;
+
+        let res = sessionIds[i].stream;
+        res.write(`data: ${oplist}\n\n`)
+    }
+})
+
+doc.on('op batch', function(op, source) {
+    console.log(`ShareDB finished applying a batch of ops from ${source}. Propogating change to all other clients`)
+    console.log(op)
     num_clients = sessionIds.length
     oplist = []
     oplist.push(op)
@@ -107,4 +123,4 @@ app.get('/doc/:id', function(req, res) {
     res.send(html)
 })
 
-app.listen(PORT, '209.94.56.34', () => console.log(`Server listening on http://'209.94.56.34':${PORT}`))
+app.listen(PORT, () => console.log(`Server listening on http://localhost:${PORT}`))
