@@ -8,7 +8,7 @@ const richText = require('rich-text');
 var QuillDeltaToHtmlConverter = require('quill-delta-to-html').QuillDeltaToHtmlConverter;
 const WebSocket = require('ws');
 const app = express()
-const PORT = process.env.PORT || 3000
+const PORT = process.env.PORT || 80
 
 /*
  *  CREATE LIST OF ACTIVE SESSIONS
@@ -21,6 +21,7 @@ sessionIds = []
 sharedbClient.types.register(richText.type);
 let ws = new WebSocket('ws://localhost:8080');
 let connection = new sharedbClient.Connection(ws);
+console.log("Connected to sharedb server")
 
 /*
  *  GET THE DOC AND ADD A .ON HANDLER
@@ -32,14 +33,16 @@ doc.subscribe(function(err){
 
 doc.on('op', function(op, source) {
     console.log(`ShareDB finished applying op from ${source}. Propogating change to all other clients`)
-    console.log(`Sending op list: ${op}`)
     num_clients = sessionIds.length
+    oplist = []
+    oplist.push(op)
+    console.log(`Sending: data: ${JSON.stringify(oplist)}\n`)
 
     for (let i = 0; i < num_clients; i ++) {
         if(sessionIds[i].id === source) continue;
 
         let res = sessionIds[i].stream;
-        res.write(`data: ${JSON.stringify(op)}\n\n`)
+        res.write(`data: ${oplist}\n\n`)
     }
 })
 
@@ -69,16 +72,18 @@ app.get('/connect/:id', function(req, res) {
   
       // send starting doc
       data = {content: doc.data.ops}
-      console.log(`Writing starting contents to new connection: ${doc.data.ops}`)
+      console.log(`Writing starting contents to new connection: ${JSON.stringify(doc.data)}`)
       res.write(`data: ${JSON.stringify(data)}\n\n`)
 })
 
 app.post('/op/:id', function(req, res) {
-    console.log(`Received operation from: ${req.params.id}. oplist: ${req.body}`)
+    console.log(`Received operation from: ${req.params.id}. oplist: ${JSON.stringify(req.body)}`)
     connectionId = req.params.id
     oplist = req.body
-    doc.submitOp(oplist, {source: connectionId})
-    console.log(`Submitted oplist to sharedb`)
+    for(let i = 0; i < oplist.length; i++) {
+        console.log(`Submitting oplist to sharedb ${JSON.stringify(oplist[i])}`)
+        doc.submitOp(oplist[i], {source: connectionId})
+    }
     res.set({'X-CSE356': '620bd941dd38a6610218bb1b'})
     res.end()
 })
@@ -88,6 +93,7 @@ app.get('/doc/:id', function(req, res) {
     
     var cfg = {};
     var deltaOps = doc.data.ops
+    console.log(`doc delta ops are: ${JSON.stringify(doc.data)}`)
     var converter = new QuillDeltaToHtmlConverter(deltaOps, cfg);
     
     var html = converter.convert(); 
@@ -101,4 +107,4 @@ app.get('/doc/:id', function(req, res) {
     res.send(html)
 })
 
-app.listen(PORT, () => console.log(`Server listening on http://localhost:${PORT}`))
+app.listen(PORT, '209.94.56.34', () => console.log(`Server listening on http://'209.94.56.34':${PORT}`))

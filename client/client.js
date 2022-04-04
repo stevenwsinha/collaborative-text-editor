@@ -8,13 +8,14 @@ var quill = new Quill('#doc-container', {
 quill.on('text-change', async function(delta, oldDelta, source) {
     if(source !== 'user') return
     let opsURL = "/op/" + connectionId
+    let oplist = [delta]
 
     fetch(opsURL, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         },
-        body: JSON.stringify(delta)                                            
+        body: JSON.stringify(oplist)                                            
     })
 })
 
