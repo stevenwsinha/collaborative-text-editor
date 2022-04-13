@@ -1,5 +1,5 @@
 /*
- *  IMPORT THE NECESSARY MODULES AND SET GLOBAL CONSTANTS
+ *  IMPORT MODULES
  */ 
 const express = require('express')
 const bodyParser = require('body-parser')
@@ -7,8 +7,13 @@ const sharedbClient = require('sharedb/lib/client')
 const richText = require('rich-text');
 var QuillDeltaToHtmlConverter = require('quill-delta-to-html').QuillDeltaToHtmlConverter;
 const WebSocket = require('ws');
+
+// IMPORT SCHEMAS
+const {User} = require('./db.js') 
+
+// EXPRESS PEPEGA
 const app = express()
-const PORT = process.env.PORT || 80
+const PORT = process.env.PORT || 3000
 
 /*
  *  CREATE LIST OF ACTIVE SESSIONS
@@ -30,6 +35,7 @@ let doc = connection.get('milestone1', 'main')
 doc.subscribe(function(err){
     if (err) throw err;
 })
+doc.submitSource = true;
 
 doc.on('op', function(op, source) {
     console.log(`ShareDB finished applying op from ${source}. Propogating change to all other clients`)
@@ -51,10 +57,43 @@ doc.on('op', function(op, source) {
  */
 app.use(express.static("../client"))
 app.use(bodyParser.json());
+app.use(bodyParser.urlencoded( { extended: true}))
 
 /*
- *  SET UP EXPRESS ROUTING
+ *  SET UP EXPRESS USER ROUTING
  */
+
+app.post('/users/signup', async function (req, res) {
+    let {username, password, email} = req.body;
+    console.log(`Received creation request for user: ${username} with email: ${email} and password: ${password}`);
+
+    existingUser = await User.findOne({email: email});
+    if(existingUser){
+        return res.json({
+            error: true,
+            message: "A user with that email already exists"
+        });
+    }
+
+    let newUser = new User({
+        username, password, email
+    });
+
+    newUser.verified = false;
+
+    let savedUser = newUser.save()
+    if(!savedUser){
+        return res.json({
+            error: true,
+            message: "Server error, user account could not be saved"
+        });
+    }
+
+    // call email function here
+
+    res.status(200).json({});
+})
+
 app.get('/connect/:id', function(req, res) {
     console.log(`Got new connection from id: ${req.params.id}`)
 
