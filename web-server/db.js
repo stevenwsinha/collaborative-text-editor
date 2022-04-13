@@ -20,6 +20,7 @@ const userSchema = new mongoose.Schema({
     password: String,
     email: String,
     verified: Boolean,
+    verifyKey: String,
 })
 
 module.exports = { User: mongoose.model('User', userSchema)}

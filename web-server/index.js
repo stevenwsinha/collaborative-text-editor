@@ -64,8 +64,8 @@ app.use(bodyParser.urlencoded( { extended: true}))
  */
 
 app.post('/users/signup', async function (req, res) {
-    let {username, password, email} = req.body;
-    console.log(`Received creation request for user: ${username} with email: ${email} and password: ${password}`);
+    let {name, password, email} = req.body;
+    console.log(`Received USER ACCOUNT CREATION request for user: ${name} with email: ${email} and password: ${password}`);
 
     existingUser = await User.findOne({email: email});
     if(existingUser){
@@ -76,10 +76,19 @@ app.post('/users/signup', async function (req, res) {
     }
 
     let newUser = new User({
-        username, password, email
+        name, password, email
     });
 
     newUser.verified = false;
+
+    let key = '';
+    const characters ='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    const charactersLength = characters.length;
+    for ( let i = 0; i < 12; i++ ) {
+        key += characters.charAt(Math.floor(Math.random() * charactersLength));
+    }
+
+    newUser.verifyKey = key;
 
     let savedUser = newUser.save()
     if(!savedUser){
@@ -89,9 +98,66 @@ app.post('/users/signup', async function (req, res) {
         });
     }
 
-    // call email function here
+    // CALL EMAIL FUNCTION HERE
 
     res.status(200).json({});
+})
+
+app.post('/users/login', async function (req, res) {
+    let {email, password} = req.body;
+    console.log(`Received LOGIN request for user: ${email}`);
+
+    await User.findOne({email: email}).then((user) => {
+        if (!user) {
+            return res.json({
+                error: true,
+                message: "No user associated with that password"
+            });
+        }
+
+        if(password !== user.password){
+            return res.json({
+                error: true,
+                message: "Incorrect password"
+            });
+        }
+
+        if (!user.verified) {
+            return res.json({
+                error: true,
+                message: "Cannot log into unverified account"
+            })
+        }
+
+        res.cookie('id', user._id);
+        return res.json({name: user.name})
+    })
+})
+
+app.get('/users/verify', async function (req, res) {
+    let {id, key} = req.query;
+
+    await User.findOne({id: id}).then((user) => {
+        if(!user) {
+            return res.json({
+                error: true,
+                message: "No user associated with that id"
+            });
+        }
+
+        if(key !== user.verifyKey) {
+            return res.json({
+                error: true,
+                message: "Incorrect verification key"
+            });
+        }
+
+        user.verified = true;
+        user.save()
+
+        console.log("SUCCESS")
+        return res.redirect('/');
+    })
 })
 
 app.get('/connect/:id', function(req, res) {
