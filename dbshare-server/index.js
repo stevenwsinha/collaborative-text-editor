@@ -1,29 +1,14 @@
 const http = require('http');
 const express = require('express');
 const ShareDB = require('sharedb');
+const db = require('sharedb-mongo')('mongodb://127.0.0.1:27017/milestone2')
 const richText = require('rich-text');
 const WebSocket = require('ws');
 const WebSocketJSONStream = require('@teamwork/websocket-json-stream');
 
 ShareDB.types.register(richText.type)
-var backend = new ShareDB();
-createDoc(startServer)
-
-function createDoc(callback) {
-    // connect to sharedb
-    let connection = backend.connect()
-
-    // fetch the doc with id 'main' from collection 'milestone1'
-    var doc = connection.get('milestone1', 'main')
-    doc.fetch(function(err) {
-        if (err) throw err;
-        if (doc.type === null) {
-          doc.create([], 'rich-text', callback);
-          return;
-        }
-        callback();
-      });
-}
+var backend = new ShareDB(db);
+startServer()
 
 function startServer() {
     // create a server to listen for web socket connections

@@ -9,7 +9,7 @@ var QuillDeltaToHtmlConverter = require('quill-delta-to-html').QuillDeltaToHtmlC
 const WebSocket = require('ws');
 
 // IMPORT SCHEMAS
-const {User} = require('./db.js') 
+const {User, DocName} = require('./db.js') 
 
 // EXPRESS PEPEGA
 const app = express()
@@ -31,7 +31,7 @@ console.log("Connected to sharedb server")
 /*
  *  GET THE DOC AND ADD A .ON HANDLER
  */
-let doc = connection.get('milestone1', 'main')
+let doc = connection.get('documents', 'main')
 doc.subscribe(function(err){
     if (err) throw err;
 })
@@ -136,8 +136,9 @@ app.post('/users/login', async function (req, res) {
 
 app.get('/users/verify', async function (req, res) {
     let {id, key} = req.query;
+    console.log(`Received VERIFY request for user: ${id}`)
 
-    await User.findOne({id: id}).then((user) => {
+    await User.findById(id).then((user) => {
         if(!user) {
             return res.json({
                 error: true,
@@ -152,12 +153,24 @@ app.get('/users/verify', async function (req, res) {
             });
         }
 
-        user.verified = true;
+        user.verified = true
         user.save()
 
-        console.log("SUCCESS")
-        return res.redirect('/');
+        return res.redirect('/public/home.html')
     })
+})
+
+app.post('/collection/create', async function (req, res) {
+    let {name} = req.body;
+    console.log(`Received CREATE DOC request with doc name ${name}`)
+
+    let docName = new DocName({name})
+    docName.save()
+
+    let doc = connection.get('documents', docName.id);
+    doc.create([], 'rich-text');
+
+    return res.json({docid: docName.id})
 })
 
 app.get('/connect/:id', function(req, res) {

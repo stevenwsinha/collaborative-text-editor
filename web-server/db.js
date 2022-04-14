@@ -23,4 +23,10 @@ const userSchema = new mongoose.Schema({
     verifyKey: String,
 })
 
-module.exports = { User: mongoose.model('User', userSchema)}
+const docNameScheme = new mongoose.Schema({
+    name: String,
+})
+
+module.exports = {  User: mongoose.model('User', userSchema),
+                    DocName: mongoose.model('DocName', docNameScheme)
+                }
