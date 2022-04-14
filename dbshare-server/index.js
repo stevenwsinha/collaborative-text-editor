@@ -1,13 +1,13 @@
 const http = require('http');
 const express = require('express');
 const ShareDB = require('sharedb');
-const db = require('sharedb-mongo')('mongodb://127.0.0.1:27017/milestone2')
+const db = require('sharedb-mongo')('mongodb://localhost:27017/milestone2', {mongoOptions: {}});
 const richText = require('rich-text');
 const WebSocket = require('ws');
 const WebSocketJSONStream = require('@teamwork/websocket-json-stream');
 
 ShareDB.types.register(richText.type)
-var backend = new ShareDB(db);
+const backend = new ShareDB({db});
 startServer()
 
 function startServer() {

@@ -4,6 +4,7 @@
 const express = require('express')
 const bodyParser = require('body-parser')
 const sharedbClient = require('sharedb/lib/client')
+const {MongoClient} = require('mongodb')
 const richText = require('rich-text');
 var QuillDeltaToHtmlConverter = require('quill-delta-to-html').QuillDeltaToHtmlConverter;
 const WebSocket = require('ws');
@@ -21,6 +22,17 @@ const PORT = process.env.PORT || 3000
 sessionIds = []
 
 /*
+ *  CREATE CONNECTION TO MONGODB
+ */
+const client = new MongoClient('mongodb://localhost:27017', {
+    useUnifiedTopology: true,
+    useNewUrlParser: true
+});
+client.connect()
+const db = client.db('milestone2')
+const documentDB = db.collection('docs')
+
+/*
  *  CREATE CONNECTION TO SHAREDB SERVER
  */
 sharedbClient.types.register(richText.type);
@@ -31,7 +43,7 @@ console.log("Connected to sharedb server")
 /*
  *  GET THE DOC AND ADD A .ON HANDLER
  */
-let doc = connection.get('documents', 'main')
+let doc = connection.get('docs', 'main')
 doc.subscribe(function(err){
     if (err) throw err;
 })
@@ -167,7 +179,7 @@ app.post('/collection/create', async function (req, res) {
     let docName = new DocName({name})
     docName.save()
 
-    let doc = connection.get('documents', docName.id);
+    let doc = connection.get('docs', docName.id);
     doc.create([], 'rich-text');
 
     return res.json({docid: docName.id})
@@ -179,14 +191,27 @@ app.post('/collection/delete', async function (req, res) {
 
     await DocName.deleteOne({id: docid});
 
-    let doc = connection.get('documents', docid);
+    let doc = connection.get('docs', docid);
     doc.del();
 
     return res.json({})
 })
 
-app.post('/collection/list', async function (req, res) {
-    
+app.get('/collection/list', async function (req, res) {
+    console.log("Received LIST request")
+    let pairs = []
+
+    let recent = await documentDB.find().sort({"_m.mtime": -1}).limit(10)
+    let data = await recent.toArray();
+
+    for(let i = 0; i < data.length; i++){
+        id = data[i]._id
+        let namePair = await DocName.findById(id);
+        let name = namePair.name;
+        pairs.push({id: id, name: name})
+    }
+
+    res.send(pairs);
 })
 
 app.get('/connect/:id', function(req, res) {
