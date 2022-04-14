@@ -173,6 +173,11 @@ app.get('/users/verify', async function (req, res) {
     })
 })
 
+
+/*
+ *  SET UP EXPRESS COLLECTION ROUTING
+ */
+
 app.post('/collection/create', async function (req, res) {
     let {name} = req.body;
     console.log(`Received CREATE DOC request with doc name ${name}`)
@@ -218,6 +223,11 @@ app.get('/collection/list', async function (req, res) {
     res.send(pairs).end();
 })
 
+
+/*
+ *  SET UP EXPRESS UI ROUTING
+ */
+
 app.get('/doc/edit/:DOCID', function (req, res) {
     console.log(`Sending EDIT UI for doc ${req.params.DOCID}`)
     res.sendFile(path.join(__dirname, "../client/public/doc.html"))
@@ -227,6 +237,11 @@ app.get('/home', function (req, res) {
     console.log(`Sending HOME UI`)
     res.sendFile(path.join(__dirname, "../client/public/home.html"))
 })
+
+
+/*
+ *  SET UP DOC EDIT ROUTING
+ */
 
 app.get('/connect/:id', function(req, res) {
     console.log(`Got new connection from id: ${req.params.id}`)
