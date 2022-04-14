@@ -169,7 +169,7 @@ app.get('/users/verify', async function (req, res) {
         user.verified = true
         user.save()
 
-        return res.redirect('/public/home.html')
+        return res.redirect('/home')
     })
 })
 
@@ -194,7 +194,7 @@ app.post('/collection/delete', async function (req, res) {
 
     let doc = connection.get('docs', docid);
     
-    if(doc.type !== null) {
+    if(doc._type !== null) {
         doc.del();
     }
 
@@ -205,7 +205,7 @@ app.get('/collection/list', async function (req, res) {
     console.log("Received LIST request")
     let pairs = []
 
-    let recent = await documentDB.find().sort({"_m.mtime": -1}).limit(10)
+    let recent = await documentDB.find({_type: "http://sharejs.org/types/rich-text/v1"}).sort({"_m.mtime": -1}).limit(10)
     let data = await recent.toArray();
 
     for(let i = 0; i < data.length; i++){
@@ -219,8 +219,13 @@ app.get('/collection/list', async function (req, res) {
 })
 
 app.get('/doc/edit/:DOCID', function (req, res) {
-    console.log(`Loading EDIT UI for doc ${req.params.DOCID}`)
+    console.log(`Sending EDIT UI for doc ${req.params.DOCID}`)
     res.sendFile(path.join(__dirname, "../client/public/doc.html"))
+})
+
+app.get('/home', function (req, res) {
+    console.log(`Sending HOME UI`)
+    res.sendFile(path.join(__dirname, "../client/public/home.html"))
 })
 
 app.get('/connect/:id', function(req, res) {

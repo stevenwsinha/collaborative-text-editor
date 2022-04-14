@@ -2,7 +2,6 @@ window.onload = async function() {
     let logout = document.getElementById("logout-button")
     logout.onclick = () => {
         fetch("/users/logout", {method: "POST"})
-        window.location.reload(true)
     }
     
     await fetch("/collection/list")
@@ -33,6 +32,7 @@ window.onload = async function() {
                         },
                         body: JSON.stringify({docid: id})
                     })
+                    window.location.reload(true)
                 }
 
                 docDiv.appendChild(docLink)
