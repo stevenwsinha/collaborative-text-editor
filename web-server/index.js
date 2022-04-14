@@ -2,6 +2,7 @@
  *  IMPORT MODULES
  */ 
 const express = require('express')
+const path = require('path');
 const bodyParser = require('body-parser')
 const sharedbClient = require('sharedb/lib/client')
 const {MongoClient} = require('mongodb')
@@ -189,10 +190,13 @@ app.post('/collection/delete', async function (req, res) {
     let {docid} = req.body;
     console.log(`Received DELETE DOC request with doc name ${docid}`)
 
-    await DocName.deleteOne({id: docid});
+    await DocName.deleteOne({_id: docid});
 
     let doc = connection.get('docs', docid);
-    doc.del();
+    
+    if(doc.type !== null) {
+        doc.del();
+    }
 
     return res.json({})
 })
@@ -211,7 +215,12 @@ app.get('/collection/list', async function (req, res) {
         pairs.push({id: id, name: name})
     }
 
-    res.send(pairs);
+    res.send(pairs).end();
+})
+
+app.get('/doc/edit/:DOCID', function (req, res) {
+    console.log(`Loading EDIT UI for doc ${req.params.DOCID}`)
+    res.sendFile(path.join(__dirname, "../client/public/doc.html"))
 })
 
 app.get('/connect/:id', function(req, res) {
