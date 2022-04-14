@@ -173,6 +173,22 @@ app.post('/collection/create', async function (req, res) {
     return res.json({docid: docName.id})
 })
 
+app.post('/collection/delete', async function (req, res) {
+    let {docid} = req.body;
+    console.log(`Received DELETE DOC request with doc name ${docid}`)
+
+    await DocName.deleteOne({id: docid});
+
+    let doc = connection.get('documents', docid);
+    doc.del();
+
+    return res.json({})
+})
+
+app.post('/collection/list', async function (req, res) {
+    
+})
+
 app.get('/connect/:id', function(req, res) {
     console.log(`Got new connection from id: ${req.params.id}`)
 
