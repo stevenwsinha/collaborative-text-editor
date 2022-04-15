@@ -225,17 +225,14 @@ app.get('/doc/connect/:DOCID/:UID', function(req, res) {
     
     let doc
     if (!docMap.has(DOCID)) {
-        doc = connection.get('docs', DOCID)        
+        doc = connection.get('docs', DOCID)
+        if(doc.type == null) {
+            return res.json({error: true, msg: "Cannot connect to a doc that has not been created"})
+        }        
         docMap.set(DOCID, {doc: doc, connections: [{uid: UID, stream: res}]})
         
         doc.subscribe(function(err){
             if (err) throw err;
-        })
-        doc.submitSource = true;
-    
-        doc.on('op', function(op, source) {
-            console.log(`Op was submitted`)
-            //res.write(`data: ${oplist}\n\n`)
         })
     }
     else{
@@ -257,16 +254,34 @@ app.get('/doc/connect/:DOCID/:UID', function(req, res) {
     res.write(`data: ${JSON.stringify(data)}\n\n`)
 })
 
-app.post('/op/:id', function(req, res) {
-    console.log(`Received operation from: ${req.params.id}. oplist: ${JSON.stringify(req.body)}`)
-    connectionId = req.params.id
-    oplist = req.body
-    for(let i = 0; i < oplist.length; i++) {
-        console.log(`Submitting oplist to sharedb ${JSON.stringify(oplist[i])}`)
-        doc.submitOp(oplist[i], {source: connectionId})
+app.post('/doc/op/:DOCID/:UID', function(req, res) {
+    let {DOCID, UID} = req.params
+    let {version, op} = req.body
+    
+    let docObject = docMap.get(DOCID)
+    if (docObject === undefined) {
+        return res.json({error: true, msg: "Cannot edit a doc that has not been created"})
     }
-    res.set({'X-CSE356': '620bd941dd38a6610218bb1b'})
-    res.end()
+
+    let doc = docObject.doc
+    if(doc.version !== version) {
+        return res.json({status: 'retry'})
+    }
+    
+    doc.submitOp(op,{},()=>{
+        for(let i = 0; i < docObject.connections.length; i++) {
+            id = docObject.connections[i].uid
+            res = docObject.connections[i].stream
+            if (connection.uid == UID) {
+                res.write(`data: ${JSON.stringify({ack:op})}\n\n`)
+            }
+            else {
+                res.write(`data: ${JSON.stringify(op)}\n\n`)
+            }
+        }
+    })
+    
+    return res.json({status: 'ok'})
 })
 
 app.get('/doc/:id', function(req, res) {

@@ -1,6 +1,11 @@
-var connectionID
-var docID
-var eventtSource
+const { response } = require("express")
+
+let connectionID
+let docID
+let eventSource
+let docVersion
+let changeQueue = []
+
 
 var quill = new Quill('#doc-container', {
     theme: 'snow'
@@ -8,16 +13,11 @@ var quill = new Quill('#doc-container', {
 
 quill.on('text-change', async function(delta, oldDelta, source) {
     if(source !== 'user') return
-    let opsURL = "/op/" + connectionId
-    let oplist = [delta]
-
-    fetch(opsURL, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(oplist)                                            
-    })
+    
+    changeQueue.push({op: delta, status: "unsent"})
+    if(changeQueue.length === 1) {
+        sendQueue()
+    }
 })
 
 /*
@@ -35,6 +35,41 @@ window.onload = async function() {
 
     eventSource.onmessage = function(msg) {
         console.log(`received: ${msg.data}`)
-        ops = JSON.parse(msg.data)
+        response = JSON.parse(msg.data) 
+
+        if (response.content) {
+            quill.updateContents(response.content, 'api')
+            docVersion = response.version
+            return
+        }
+
+        if (response.ack) {
+            docVersion++
+            sendQueue()
+        }
+
+        if (response.presence) {
+            return
+        }
+
+        else {
+            processOp(response)
+            sendQueue()
+        }
     }
+}
+
+function sendQueue() {
+    
+}
+
+function processOp(stream_op) {
+    // go thru and transform everything 
+    changeQueue = changeQueue.map((op) => {
+        let newOp = stream_op.transform(op)
+        stream_op = op.transform(stream_op)
+        return newOp
+    })
+
+    quill.updateContents(stream_op)
 }
