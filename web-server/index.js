@@ -18,9 +18,9 @@ const app = express()
 const PORT = process.env.PORT || 3000
 
 /*
- *  CREATE LIST OF ACTIVE SESSIONS
+ *  CREATE MAP OF OPEN DOCUMENTS
  */
-sessionIds = []
+docMap = new Map()
 
 /*
  *  CREATE CONNECTION TO MONGODB
@@ -40,30 +40,6 @@ sharedbClient.types.register(richText.type);
 let ws = new WebSocket('ws://localhost:8080');
 let connection = new sharedbClient.Connection(ws);
 console.log("Connected to sharedb server")
-
-/*
- *  GET THE DOC AND ADD A .ON HANDLER
- */
-let doc = connection.get('docs', 'main')
-doc.subscribe(function(err){
-    if (err) throw err;
-})
-doc.submitSource = true;
-
-doc.on('op', function(op, source) {
-    console.log(`ShareDB finished applying op from ${source}. Propogating change to all other clients`)
-    num_clients = sessionIds.length
-    oplist = []
-    oplist.push(op)
-    console.log(`Sending: data: ${JSON.stringify(oplist)}\n`)
-
-    for (let i = 0; i < num_clients; i ++) {
-        if(sessionIds[i].id === source) continue;
-
-        let res = sessionIds[i].stream;
-        res.write(`data: ${oplist}\n\n`)
-    }
-})
 
 /*
  *  SET UP EXPRESS MIDDLEWARE/STATIC CONTENT SERVING
@@ -243,8 +219,29 @@ app.get('/home', function (req, res) {
  *  SET UP DOC EDIT ROUTING
  */
 
-app.get('/connect/:id', function(req, res) {
-    console.log(`Got new connection from id: ${req.params.id}`)
+app.get('/doc/connect/:DOCID/:UID', function(req, res) {
+    let {DOCID, UID} = req.params
+    console.log(`Got new CONNECTION on doc: ${DOCID} with connection id: ${UID}`)
+    
+    let doc
+    if (!docMap.has(DOCID)) {
+        doc = connection.get('docs', DOCID)        
+        docMap.set(DOCID, {doc: doc, connections: [{uid: UID, stream: res}]})
+        
+        doc.subscribe(function(err){
+            if (err) throw err;
+        })
+        doc.submitSource = true;
+    
+        doc.on('op', function(op, source) {
+            console.log(`Op was submitted`)
+            //res.write(`data: ${oplist}\n\n`)
+        })
+    }
+    else{
+        doc = docMap.get(DOCID).doc
+        docMap.get(DOCID).connections.push({uid: UID, stream: res})
+    }
 
     // set up event stream
     res.set({
@@ -253,15 +250,11 @@ app.get('/connect/:id', function(req, res) {
         'Content-Type': 'text/event-stream',
         'Connection': 'keep-alive'
       });
-      res.flushHeaders();
-  
-      // add writable response and id to map
-      sessionIds.push({id: req.params.id, stream: res})
-  
-      // send starting doc
-      data = {content: doc.data.ops}
-      console.log(`Writing starting contents to new connection: ${JSON.stringify(doc.data)}`)
-      res.write(`data: ${JSON.stringify(data)}\n\n`)
+    res.flushHeaders();
+
+    // send starting doc    
+    data = {content: doc.data.ops, version: doc.version} 
+    res.write(`data: ${JSON.stringify(data)}\n\n`)
 })
 
 app.post('/op/:id', function(req, res) {
