@@ -18,6 +18,20 @@ quill.on('text-change', async function(delta, oldDelta, source) {
     }
 })
 
+quill.on('selection-change', async function(range, oldRange, source) {
+    if(range) {
+        let presenceURL = "/doc/presence/" + docID + "/" + connectionID
+        console.log(presenceURL)
+        let response = await fetch(presenceURL, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({index: range.index, length: range.length})
+        })
+    }
+})
+
 /*
  * establish the connection
  */
@@ -103,9 +117,9 @@ function processOp(stream_op) {
     console.log(stream_op)
     for(let i = 0; i < stream_op.length; i++){
         cmd = stream_op[i]
-        changeQueue = changeQueue.map((op) => {
-            let newOp = cmd.transform(op)
-            cmd = op.transform(cmd)
+        changeQueue = changeQueue.map((entry) => {
+            let newOp = cmd.transform(entry.op)
+            cmd = entry.op.transform(cmd)
             return newOp
         })
         stream_op[i] = cmd

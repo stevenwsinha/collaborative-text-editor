@@ -4,6 +4,8 @@
 const express = require('express')
 const path = require('path');
 const bodyParser = require('body-parser')
+const cookieParser = require('cookie-parser')
+const nodemailer = require("nodemailer");
 const sharedbClient = require('sharedb/lib/client')
 const {MongoClient} = require('mongodb')
 const richText = require('rich-text');
@@ -50,12 +52,14 @@ console.log("Connected to sharedb server")
 app.use(express.static("../client"))
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded( { extended: true}))
+app.use(cookieParser());
 
 /*
  *  SET UP EXPRESS USER ROUTING
  */
 
 app.post('/users/signup', async function (req, res) {
+    res.set({'X-CSE356': '620bd941dd38a6610218bb1b'})
     let {name, password, email} = req.body;
     console.log(`Received USER ACCOUNT CREATION request for user: ${name} with email: ${email} and password: ${password}`);
 
@@ -96,6 +100,7 @@ app.post('/users/signup', async function (req, res) {
 })
 
 app.post('/users/login', async function (req, res) {
+    res.set({'X-CSE356': '620bd941dd38a6610218bb1b'})
     let {email, password} = req.body;
     console.log(`Received LOGIN request for user: ${email}`);
 
@@ -127,11 +132,13 @@ app.post('/users/login', async function (req, res) {
 })
 
 app.post('/users/logout', async function (req, res) {
+    res.set({'X-CSE356': '620bd941dd38a6610218bb1b'})
     res.clearCookie('id');
     res.redirect("/").end();
 })
 
 app.get('/users/verify', async function (req, res) {
+    res.set({'X-CSE356': '620bd941dd38a6610218bb1b'})
     let {id, key} = req.query;
     console.log(`Received VERIFY request for user: ${id}`)
 
@@ -163,6 +170,11 @@ app.get('/users/verify', async function (req, res) {
  */
 
 app.post('/collection/create', async function (req, res) {
+    res.set({'X-CSE356': '620bd941dd38a6610218bb1b'})
+    if(!req.cookies['id']) {
+        res.json({error: true, message: "/collection/create call does not have proper authentication"})
+    }
+
     let {name} = req.body;
     console.log(`Received CREATE DOC request with doc name ${name}`)
 
@@ -176,6 +188,11 @@ app.post('/collection/create', async function (req, res) {
 })
 
 app.post('/collection/delete', async function (req, res) {
+    res.set({'X-CSE356': '620bd941dd38a6610218bb1b'})
+    if(!req.cookies['id']) {
+        res.json({error: true, message: "/collection/delete call does not have proper authentication"})
+    }
+
     let {docid} = req.body;
     console.log(`Received DELETE DOC request with doc name ${docid}`)
 
@@ -192,6 +209,11 @@ app.post('/collection/delete', async function (req, res) {
 })
 
 app.get('/collection/list', async function (req, res) {
+    res.set({'X-CSE356': '620bd941dd38a6610218bb1b'})
+    if(!req.cookies['id']) {
+        res.json({error: true, message: "/collection/list call does not have proper authentication"})
+    }
+
     console.log("Received LIST request")
     let pairs = []
 
@@ -214,11 +236,21 @@ app.get('/collection/list', async function (req, res) {
  */
 
 app.get('/doc/edit/:DOCID', function (req, res) {
+    res.set({'X-CSE356': '620bd941dd38a6610218bb1b'})
+    if(!req.cookies['id']) {
+        res.json({error: true, message: "/doc/edit call does not have proper authentication"})
+    }
+
     console.log(`Sending EDIT UI for doc ${req.params.DOCID}`)
     res.sendFile(path.join(__dirname, "../client/public/doc.html"))
 })
 
 app.get('/home', function (req, res) {
+    res.set({'X-CSE356': '620bd941dd38a6610218bb1b'})
+    if(!req.cookies['id']) {
+        res.json({error: true, message: "/home call does not have proper authentication"})
+    }
+
     console.log(`Sending HOME UI`)
     res.sendFile(path.join(__dirname, "../client/public/home.html"))
 })
@@ -259,6 +291,11 @@ const upload = multer({ storage: storage,
                         } 
                     })
 app.post("/media/upload", upload.single('file'), function (req, res) {
+    res.set({'X-CSE356': '620bd941dd38a6610218bb1b'})
+    if(!req.cookies['id']) {
+        res.json({error: true, message: "/media/upload call does not have proper authentication"})
+    }
+
     console.log("Received image upload")
     if(!req.file) {
         res.json({error: true, message: "invalid upload file"})
@@ -268,6 +305,11 @@ app.post("/media/upload", upload.single('file'), function (req, res) {
 });
 
 app.get('/media/access/:MEDIAID', async function (req, res) {
+    res.set({'X-CSE356': '620bd941dd38a6610218bb1b'})
+    if(!req.cookies['id']) {
+        res.json({error: true, message: "/media/access call does not have proper authentication"})
+    }
+
     let {MEDIAID} = req.params
     console.log(`Received image upload for image with id: ${MEDIAID}`)
     let extension = MEDIAID.substring(MEDIAID.indexOf("."))
@@ -288,6 +330,10 @@ app.get('/media/access/:MEDIAID', async function (req, res) {
  */
 
 app.get('/doc/connect/:DOCID/:UID', async function(req, res) {
+    if(!req.cookies['id']) {
+        res.json({error: true, message: "/document/connect call does not have proper authentication"})
+    }
+
     let {DOCID, UID} = req.params
     console.log(`Got new CONNECTION on doc: ${DOCID} with connection id: ${UID}`)
     
@@ -300,12 +346,34 @@ app.get('/doc/connect/:DOCID/:UID', async function(req, res) {
       });
     res.flushHeaders();
 
-    res.on("close", ()=> {
+    res.on("close", async ()=> {
         console.log(`Connection ${UID} CLOSED`)
         clients = docMap.get(DOCID)
-        let index = clients.indexOf(UID)
-        clients.splice(index, 1)
-        userMap.delete(UID)
+
+        if(clients.includes(UID)) { 
+            let index = clients.indexOf(UID)
+            docMap.get(DOCID).splice(index, 1)
+            userMap.get(UID).end()
+            userMap.delete(UID)
+        }   
+        userID = req.cookies['id'];
+
+        let user = await User.findById(userID);
+    
+        let name = user.name
+    
+        for(let i = 0; i < clients.length; i++) {
+            id = clients[i]
+            stream = userMap.get(id)
+            if (id === UID) {
+                continue
+            }
+            else {
+                let data = {id: UID,
+                            cursor: null}
+                stream.write(`data: ${JSON.stringify(data)}\n\n`)
+            }
+        }
     })
 
     if(docMap.has(DOCID)) {
@@ -335,6 +403,11 @@ app.get('/doc/connect/:DOCID/:UID', async function(req, res) {
 })
 
 app.post('/doc/op/:DOCID/:UID', function(req, res) {
+    res.set({'X-CSE356': '620bd941dd38a6610218bb1b'})
+    if(!req.cookies['id']) {
+        res.json({error: true, message: "/doc/op call does not have proper authentication"})
+    }
+
     let {DOCID, UID} = req.params
     let {version, op} = req.body
     console.log(`got EDIT OP on doc ${DOCID} from connection ${UID}`)
@@ -380,23 +453,65 @@ app.post('/doc/op/:DOCID/:UID', function(req, res) {
     })
 })
 
+app.post('/doc/presence/:DOCID/:UID', async function(req, res) {
+    res.set({'X-CSE356': '620bd941dd38a6610218bb1b'})
+    if(!req.cookies['id']) {
+        res.json({error: true, message: "/doc/presence call does not have proper authentication"})
+    }
+
+
+    let {DOCID, UID} = req.params
+    let {index, length} = req.body
+
+    console.log(`got EDIT PRESENCE on doc ${DOCID} from connection ${UID}`)
+    console.log(`index: ${index}, length: ${length}`)
+
+    userID = req.cookies['id'];
+
+    let user = await User.findById(userID);
+
+    if(!user) {
+        res.json({error: true, message: "/doc/presence user does not exist"})
+    }
+
+    let name = user.name
+
+    let clients = docMap.get(DOCID)
+    for(let i = 0; i < clients.length; i++) {
+        id = clients[i]
+        stream = userMap.get(id)
+        if (id === UID) {
+            continue
+        }
+        else {
+            let data = {id: UID,
+                        cursor: {index: index, length: length, name: name}}
+            stream.write(`data: ${JSON.stringify(data)}\n\n`)
+        }
+    }
+
+    res.json({}).end
+})  
+
 app.get('/doc/get/:DOCID/:UID', function(req, res) {
     let {DOCID, UID} = req.params
     console.log(`Recieved doc as html request for ${DOCID}`)
     
     var cfg = {};
-    var deltaOps = doc.data.ops
-    var converter = new QuillDeltaToHtmlConverter(deltaOps, cfg);
-    
-    var html = converter.convert(); 
-    
-    console.log(`Responding with html: ${html}`)
+    let doc = connection.get('docs', DOCID)
+    doc.fetch(() => {
+        var deltaOps = doc.data.ops
+        var converter = new QuillDeltaToHtmlConverter(deltaOps, cfg);
+        
+        var html = converter.convert(); 
+        console.log(`Responding with html: ${html}`)
 
-    res.set({
-        'X-CSE356': '620bd941dd38a6610218bb1b',
-        'Content-Type': 'text/html',
-      });
-    res.send(html).end()
+        res.set({
+            'X-CSE356': '620bd941dd38a6610218bb1b',
+            'Content-Type': 'text/html',
+        });
+        res.send(html).end()  
+    })
 })
 
 app.listen(PORT, () => console.log(`Server listening on http://localhost:${PORT}`))
