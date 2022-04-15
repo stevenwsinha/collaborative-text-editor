@@ -184,7 +184,7 @@ function send_email(email, id, key) {
     let encoded_link = encodeURIComponent(verification_link)
 
     let mailOptions = {
-        from: 'smoge.cse356.compas.cs.stonybrook.edu',
+        from: '"smoge" <smoge@smoge.cse356.compas.cs.stonybrook.edu>',
         to: encoded_email, 
         subject: "verification link",
         text: encoded_link
