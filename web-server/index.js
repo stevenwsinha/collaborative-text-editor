@@ -18,9 +18,10 @@ const app = express()
 const PORT = process.env.PORT || 3000
 
 /*
- *  CREATE MAP OF OPEN DOCUMENTS
+ *  CREATE MAP OF OPEN DOCUMENTS TO UIDs, AND UIDs TO STREAMS
  */
 docMap = new Map()
+userMap = new Map()
 
 /*
  *  CREATE CONNECTION TO MONGODB
@@ -174,12 +175,13 @@ app.post('/collection/delete', async function (req, res) {
     await DocName.deleteOne({_id: docid});
 
     let doc = connection.get('docs', docid);
+    doc.fetch(()=>{
+        if(doc._type !== null) {
+            doc.del();
+        }
     
-    if(doc._type !== null) {
-        doc.del();
-    }
-
-    return res.json({})
+        return res.json({})
+    })
 })
 
 app.get('/collection/list', async function (req, res) {
@@ -219,29 +221,12 @@ app.get('/home', function (req, res) {
  *  SET UP DOC EDIT ROUTING
  */
 
-app.get('/doc/connect/:DOCID/:UID', function(req, res) {
+app.get('/doc/connect/:DOCID/:UID', async function(req, res) {
     let {DOCID, UID} = req.params
     console.log(`Got new CONNECTION on doc: ${DOCID} with connection id: ${UID}`)
     
-    let doc
-    if (!docMap.has(DOCID)) {
-        doc = connection.get('docs', DOCID)
-        if(doc.type == null) {
-            return res.json({error: true, msg: "Cannot connect to a doc that has not been created"})
-        }        
-        docMap.set(DOCID, {doc: doc, connections: [{uid: UID, stream: res}]})
-        
-        doc.subscribe(function(err){
-            if (err) throw err;
-        })
-    }
-    else{
-        doc = docMap.get(DOCID).doc
-        docMap.get(DOCID).connections.push({uid: UID, stream: res})
-    }
-
-    // set up event stream
-    res.set({
+     // set up event stream
+     res.set({
         'X-CSE356': '620bd941dd38a6610218bb1b',
         'Cache-Control': 'no-cache',
         'Content-Type': 'text/event-stream',
@@ -249,39 +234,83 @@ app.get('/doc/connect/:DOCID/:UID', function(req, res) {
       });
     res.flushHeaders();
 
-    // send starting doc    
-    data = {content: doc.data.ops, version: doc.version} 
-    res.write(`data: ${JSON.stringify(data)}\n\n`)
+    res.on("close", ()=> {
+        clients = docMap.get(DOCID)
+        let index = clients.indexOf(UID)
+        clients.splice(index, 1)
+        userMap.delete(UID)
+    })
+
+    if(docMap.has(DOCID)) {
+        clients = docMap.get(DOCID)
+        if(!clients.includes(UID)) {
+            docMap.get(DOCID).push(UID)
+        }
+    }
+    else {
+        console.log("opening new doc")
+        docMap.set(DOCID,[UID])
+    }
+
+    userMap.set(UID, res)
+
+    let doc = connection.get('docs', DOCID)
+    doc.fetch(() => {
+        if(doc._type === null) {
+            res.write(`data: ${JSON.stringify({error: true, msg: "Cannot connect to a doc that has not been created"})}`)
+            return  
+        }
+
+        // send starting doc 
+        data = {content: doc.data.ops, version: doc.version} 
+        res.write(`data: ${JSON.stringify(data)}\n\n`)
+    }) 
 })
 
 app.post('/doc/op/:DOCID/:UID', function(req, res) {
     let {DOCID, UID} = req.params
     let {version, op} = req.body
-    
-    let docObject = docMap.get(DOCID)
-    if (docObject === undefined) {
-        return res.json({error: true, msg: "Cannot edit a doc that has not been created"})
+    console.log(`got EDIT OP on doc ${DOCID} from connection ${UID}`)
+    console.log(`version: ${version}, op: ${JSON.stringify(op)}`)
+
+    let clients = docMap.get(DOCID)
+    if (!clients) {
+        return res.json({error: true, msg: "Cannot edit a doc with no open connections"})
     }
 
-    let doc = docObject.doc
-    if(doc.version !== version) {
-        return res.json({status: 'retry'})
-    }
-    
-    doc.submitOp(op,{},()=>{
-        for(let i = 0; i < docObject.connections.length; i++) {
-            id = docObject.connections[i].uid
-            res = docObject.connections[i].stream
-            if (connection.uid == UID) {
-                res.write(`data: ${JSON.stringify({ack:op})}\n\n`)
-            }
-            else {
-                res.write(`data: ${JSON.stringify(op)}\n\n`)
-            }
+    let doc = connection.get('docs', DOCID)
+    doc.fetch(() => {
+        if (doc._type === null) {
+            return res.json({error: true, msg: "Cannot edit a doc that has not been created"})
         }
+
+        if(doc.version !== version) {
+            console.log("Version mismatch!")
+            return res.json({status: 'retry'})
+        }
+
+        doc.submitOp(op, {}, ()=>{
+            console.log(`applied op: ${JSON.stringify(op)}`)
+
+            for(let i = 0; i < clients.length; i++) {
+                id = clients[i]
+                stream = userMap.get(id)
+                let data
+                if (id === UID) {
+                    console.log("sending ack")
+                    data = {ack:op}
+                    stream.write(`data: ${JSON.stringify(data)}\n\n`)
+                }
+                else {
+                    console.log("sending op to other clients")
+                    data = op
+                    stream.write(`data: ${JSON.stringify(data)}\n\n`)
+                }
+            }
+        })
+
+        return res.json({status: 'ok'})
     })
-    
-    return res.json({status: 'ok'})
 })
 
 app.get('/doc/:id', function(req, res) {
