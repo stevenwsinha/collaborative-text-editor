@@ -9,6 +9,8 @@ const {MongoClient} = require('mongodb')
 const richText = require('rich-text');
 var QuillDeltaToHtmlConverter = require('quill-delta-to-html').QuillDeltaToHtmlConverter;
 const WebSocket = require('ws');
+const { promises: Fs } = require('fs')
+const mime = require('mime');
 
 // IMPORT SCHEMAS
 const {User, DocName} = require('./db.js') 
@@ -90,7 +92,7 @@ app.post('/users/signup', async function (req, res) {
 
     // CALL EMAIL FUNCTION HERE
 
-    res.status(200).json({});
+    res.status(200).json({}).end()
 })
 
 app.post('/users/login', async function (req, res) {
@@ -120,8 +122,13 @@ app.post('/users/login', async function (req, res) {
         }
 
         res.cookie('id', user._id);
-        return res.json({name: user.name})
+        return res.json({name: user.name}).end()
     })
+})
+
+app.post('/users/logout', async function (req, res) {
+    res.clearCookie('id');
+    res.redirect("/").end();
 })
 
 app.get('/users/verify', async function (req, res) {
@@ -146,7 +153,7 @@ app.get('/users/verify', async function (req, res) {
         user.verified = true
         user.save()
 
-        return res.redirect('/home')
+        return res.redirect('/home').end()
     })
 })
 
@@ -165,7 +172,7 @@ app.post('/collection/create', async function (req, res) {
     let doc = connection.get('docs', docName.id);
     doc.create([], 'rich-text');
 
-    return res.json({docid: docName.id})
+    return res.json({docid: docName.id}).end()
 })
 
 app.post('/collection/delete', async function (req, res) {
@@ -180,7 +187,7 @@ app.post('/collection/delete', async function (req, res) {
             doc.del();
         }
     
-        return res.json({})
+        return res.json({}).end()
     })
 })
 
@@ -216,6 +223,65 @@ app.get('/home', function (req, res) {
     res.sendFile(path.join(__dirname, "../client/public/home.html"))
 })
 
+/*
+ *  SET UP MEDIA ROUTING
+ */
+
+const multer = require('multer');
+
+let storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, './uploads')
+      },    
+
+    filename: function (req, file, cb) {
+        const prefix = Date.now() + '-'
+        cb(null, prefix + file.originalname)
+    }
+})
+
+function checkFileType(file, cb) {
+    const filetypes = /jpg|jpeg|png/;
+    const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = filetypes.test(file.mimetype);
+  
+    if (extname && mimetype) {
+      return cb(null, true);
+    } else {
+      cb(null, false);
+    }
+  }
+
+const upload = multer({ storage: storage,
+                        limits : {fileSize : 10000000},
+                        fileFilter: function (req, file, cb) {
+                            checkFileType(file, cb)
+                        } 
+                    })
+app.post("/media/upload", upload.single('file'), function (req, res) {
+    console.log("Received image upload")
+    if(!req.file) {
+        res.json({error: true, message: "invalid upload file"})
+    }
+    let mediaid = req.file.path.substring(req.file.path.indexOf("/")+1)
+    res.json({mediaid: mediaid})
+});
+
+app.get('/media/access/:MEDIAID', async function (req, res) {
+    let {MEDIAID} = req.params
+    console.log(`Received image upload for image with id: ${MEDIAID}`)
+    let extension = MEDIAID.substring(MEDIAID.indexOf("."))
+    let pathname = "uploads/" + MEDIAID
+    
+    try {
+        await Fs.access(pathname)
+        res.setHeader("Content-Type", mime.getType(extension))
+        res.sendFile(path.join(__dirname, pathname))
+    }
+    catch {
+        res.json({error: true, message: "File corresponding to MEDIAID could not be found"}).end()
+    }
+})
 
 /*
  *  SET UP DOC EDIT ROUTING
@@ -235,6 +301,7 @@ app.get('/doc/connect/:DOCID/:UID', async function(req, res) {
     res.flushHeaders();
 
     res.on("close", ()=> {
+        console.log(`Connection ${UID} CLOSED`)
         clients = docMap.get(DOCID)
         let index = clients.indexOf(UID)
         clients.splice(index, 1)
@@ -309,16 +376,16 @@ app.post('/doc/op/:DOCID/:UID', function(req, res) {
             }
         })
 
-        return res.json({status: 'ok'})
+        return res.json({status: 'ok'}).end()
     })
 })
 
-app.get('/doc/:id', function(req, res) {
-    console.log(`Recieved doc as html request from ${req.params.id}`)
+app.get('/doc/get/:DOCID/:UID', function(req, res) {
+    let {DOCID, UID} = req.params
+    console.log(`Recieved doc as html request for ${DOCID}`)
     
     var cfg = {};
     var deltaOps = doc.data.ops
-    console.log(`doc delta ops are: ${JSON.stringify(doc.data)}`)
     var converter = new QuillDeltaToHtmlConverter(deltaOps, cfg);
     
     var html = converter.convert(); 
@@ -329,7 +396,7 @@ app.get('/doc/:id', function(req, res) {
         'X-CSE356': '620bd941dd38a6610218bb1b',
         'Content-Type': 'text/html',
       });
-    res.send(html)
+    res.send(html).end()
 })
 
 app.listen(PORT, () => console.log(`Server listening on http://localhost:${PORT}`))
