@@ -39,6 +39,18 @@ const db = client.db('milestone2')
 const documentDB = db.collection('docs')
 
 /*
+ *  CREATE NODEMAILER TRANSPORTER
+ */
+let transporter = nodemailer.createTransport({
+    host: '127.0.0.1',
+    port: 25,
+    secure: false,
+    tls:{
+        rejectUnauthorized: false
+    }
+})
+
+/*
  *  CREATE CONNECTION TO SHAREDB SERVER
  */
 sharedbClient.types.register(richText.type);
@@ -95,6 +107,7 @@ app.post('/users/signup', async function (req, res) {
     }
 
     // CALL EMAIL FUNCTION HERE
+    send_email(newUser.email, newUser._id, key)
 
     res.status(200).json({}).end()
 })
@@ -165,6 +178,28 @@ app.get('/users/verify', async function (req, res) {
     })
 })
 
+function send_email(email, id, key) {
+    let encoded_email = encodeURIComponent(email)
+    let verification_link = "http://smoge.cse356.compas.cs.stonybrook.edu/users/verify?id=" + id + "&key=" + key
+    let encoded_link = encodeURIComponent(verification_link)
+
+    let mailOptions = {
+        from: 'smoge.cse356.compas.cs.stonybrook.edu',
+        to: encoded_email, 
+        subject: "verification link",
+        text: encoded_link
+    }
+
+    transporter.sendMail(mailOptions, (error, info) => {
+        if(error) {
+            console.log(error) 
+        }
+        else{
+            console.log("mail sent!")
+            console.log("info")
+        }
+    })
+}
 
 /*
  *  SET UP EXPRESS COLLECTION ROUTING
