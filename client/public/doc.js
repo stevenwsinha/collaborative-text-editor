@@ -41,7 +41,6 @@ window.onload = async function() {
     let path = window.location.pathname
     docID = path.substring("/doc/edit/".length)
     let connectionURL = "/doc/connect/" + docID + "/" + connectionID
-    await fetch(connectionURL)
 
     connectionSource = new EventSource(connectionURL)
 

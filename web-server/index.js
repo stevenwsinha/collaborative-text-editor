@@ -19,13 +19,14 @@ const {User, DocName} = require('./db.js')
 
 // EXPRESS PEPEGA
 const app = express()
-const PORT = process.env.PORT || 3000
+const PORT = process.env.PORT || 80
 
 /*
  *  CREATE MAP OF OPEN DOCUMENTS TO UIDs, AND UIDs TO STREAMS
  */
-docMap = new Map()
-userMap = new Map()
+const docIDToUserMap = new Map()
+const userToStreamMap = new Map()
+const docIDToDocMap = new Map()
 
 /*
  *  CREATE CONNECTION TO MONGODB
@@ -71,7 +72,7 @@ app.use(cookieParser());
  */
 
 app.post('/users/signup', async function (req, res) {
-    res.set({'X-CSE356': '620bd941dd38a6610218bb1b'})
+    res.set('X-CSE356', '620bd941dd38a6610218bb1b')
     let {name, password, email} = req.body;
     console.log(`Received USER ACCOUNT CREATION request for user: ${name} with email: ${email} and password: ${password}`);
 
@@ -109,11 +110,11 @@ app.post('/users/signup', async function (req, res) {
     // CALL EMAIL FUNCTION HERE
     send_email(newUser.email, newUser._id, key)
 
-    res.status(200).json({}).end()
+    res.status(200).json({})
 })
 
 app.post('/users/login', async function (req, res) {
-    res.set({'X-CSE356': '620bd941dd38a6610218bb1b'})
+    res.set('X-CSE356', '620bd941dd38a6610218bb1b')
     let {email, password} = req.body;
     console.log(`Received LOGIN request for user: ${email}`);
 
@@ -140,18 +141,18 @@ app.post('/users/login', async function (req, res) {
         }
 
         res.cookie('id', user._id);
-        return res.json({name: user.name}).end()
+        return res.json({name: user.name})
     })
 })
 
 app.post('/users/logout', async function (req, res) {
-    res.set({'X-CSE356': '620bd941dd38a6610218bb1b'})
+    res.set('X-CSE356', '620bd941dd38a6610218bb1b')
     res.clearCookie('id');
-    res.redirect("/").end();
+    res.redirect("/")
 })
 
 app.get('/users/verify', async function (req, res) {
-    res.set({'X-CSE356': '620bd941dd38a6610218bb1b'})
+    res.set('X-CSE356', '620bd941dd38a6610218bb1b')
     let {id, key} = req.query;
     console.log(`Received VERIFY request for user: ${id}`)
 
@@ -179,15 +180,17 @@ app.get('/users/verify', async function (req, res) {
 })
 
 function send_email(email, id, key) {
-    let encoded_email = encodeURIComponent(email)
+    //let encoded_email = encodeURIComponent(email)
     let verification_link = "http://smoge.cse356.compas.cs.stonybrook.edu/users/verify?id=" + id + "&key=" + key
-    let encoded_link = encodeURIComponent(verification_link)
+
+    console.log(`SENT TO: ${email}`)
+    console.log(`LINK BEING SENT: ${verification_link}`)
 
     let mailOptions = {
         from: '"smoge" <smoge@smoge.cse356.compas.cs.stonybrook.edu>',
-        to: encoded_email, 
+        to: email, 
         subject: "verification link",
-        text: encoded_link
+        text: verification_link
     }
 
     transporter.sendMail(mailOptions, (error, info) => {
@@ -206,9 +209,9 @@ function send_email(email, id, key) {
  */
 
 app.post('/collection/create', async function (req, res) {
-    res.set({'X-CSE356': '620bd941dd38a6610218bb1b'})
+    res.set('X-CSE356', '620bd941dd38a6610218bb1b')
     if(!req.cookies['id']) {
-        res.json({error: true, message: "/collection/create call does not have proper authentication"})
+        return res.json({error: true, message: "/collection/create call does not have proper authentication"})
     }
 
     let {name} = req.body;
@@ -220,13 +223,13 @@ app.post('/collection/create', async function (req, res) {
     let doc = connection.get('docs', docName.id);
     doc.create([], 'rich-text');
 
-    return res.json({docid: docName.id}).end()
+    return res.json({docid: docName.id})
 })
 
 app.post('/collection/delete', async function (req, res) {
-    res.set({'X-CSE356': '620bd941dd38a6610218bb1b'})
+    res.set('X-CSE356', '620bd941dd38a6610218bb1b')
     if(!req.cookies['id']) {
-        res.json({error: true, message: "/collection/delete call does not have proper authentication"})
+        return res.json({error: true, message: "/collection/delete call does not have proper authentication"})
     }
 
     let {docid} = req.body;
@@ -240,14 +243,15 @@ app.post('/collection/delete', async function (req, res) {
             doc.del();
         }
     
-        return res.json({}).end()
+        return res.json({})
     })
 })
 
 app.get('/collection/list', async function (req, res) {
-    res.set({'X-CSE356': '620bd941dd38a6610218bb1b'})
+    res.set('X-CSE356', '620bd941dd38a6610218bb1b')
+
     if(!req.cookies['id']) {
-        res.json({error: true, message: "/collection/list call does not have proper authentication"})
+        return res.json({error: true, message: "/collection/list call does not have proper authentication"})
     }
 
     console.log("Received LIST request")
@@ -263,7 +267,7 @@ app.get('/collection/list', async function (req, res) {
         pairs.push({id: id, name: name})
     }
 
-    res.send(pairs).end();
+    res.send(pairs)
 })
 
 
@@ -272,9 +276,9 @@ app.get('/collection/list', async function (req, res) {
  */
 
 app.get('/doc/edit/:DOCID', function (req, res) {
-    res.set({'X-CSE356': '620bd941dd38a6610218bb1b'})
+    res.set('X-CSE356', '620bd941dd38a6610218bb1b')
     if(!req.cookies['id']) {
-        res.json({error: true, message: "/doc/edit call does not have proper authentication"})
+        return res.json({error: true, message: "/doc/edit call does not have proper authentication"})
     }
 
     console.log(`Sending EDIT UI for doc ${req.params.DOCID}`)
@@ -282,9 +286,9 @@ app.get('/doc/edit/:DOCID', function (req, res) {
 })
 
 app.get('/home', function (req, res) {
-    res.set({'X-CSE356': '620bd941dd38a6610218bb1b'})
+    res.set('X-CSE356', '620bd941dd38a6610218bb1b')
     if(!req.cookies['id']) {
-        res.json({error: true, message: "/home call does not have proper authentication"})
+        return res.json({error: true, message: "/home call does not have proper authentication"})
     }
 
     console.log(`Sending HOME UI`)
@@ -327,23 +331,23 @@ const upload = multer({ storage: storage,
                         } 
                     })
 app.post("/media/upload", upload.single('file'), function (req, res) {
-    res.set({'X-CSE356': '620bd941dd38a6610218bb1b'})
+    res.set('X-CSE356', '620bd941dd38a6610218bb1b')
     if(!req.cookies['id']) {
-        res.json({error: true, message: "/media/upload call does not have proper authentication"})
+        return res.json({error: true, message: "/media/upload call does not have proper authentication"})
     }
 
     console.log("Received image upload")
     if(!req.file) {
-        res.json({error: true, message: "invalid upload file"})
+        return res.json({error: true, message: "invalid upload file"})
     }
     let mediaid = req.file.path.substring(req.file.path.indexOf("/")+1)
     res.json({mediaid: mediaid})
 });
 
 app.get('/media/access/:MEDIAID', async function (req, res) {
-    res.set({'X-CSE356': '620bd941dd38a6610218bb1b'})
+    res.set('X-CSE356', '620bd941dd38a6610218bb1b')
     if(!req.cookies['id']) {
-        res.json({error: true, message: "/media/access call does not have proper authentication"})
+        return res.json({error: true, message: "/media/access call does not have proper authentication"})
     }
 
     let {MEDIAID} = req.params
@@ -357,7 +361,7 @@ app.get('/media/access/:MEDIAID', async function (req, res) {
         res.sendFile(path.join(__dirname, pathname))
     }
     catch {
-        res.json({error: true, message: "File corresponding to MEDIAID could not be found"}).end()
+        res.json({error: true, message: "File corresponding to MEDIAID could not be found"})
     }
 })
 
@@ -365,9 +369,9 @@ app.get('/media/access/:MEDIAID', async function (req, res) {
  *  SET UP DOC EDIT ROUTING
  */
 
-app.get('/doc/connect/:DOCID/:UID', async function(req, res) {
+app.get('/doc/connect/:DOCID/:UID', function(req, res) {
     if(!req.cookies['id']) {
-        res.json({error: true, message: "/document/connect call does not have proper authentication"})
+        return res.json({error: true, message: "/document/connect call does not have proper authentication"})
     }
 
     let {DOCID, UID} = req.params
@@ -382,118 +386,107 @@ app.get('/doc/connect/:DOCID/:UID', async function(req, res) {
       });
     res.flushHeaders();
 
-    res.on("close", async ()=> {
-        console.log(`Connection ${UID} CLOSED`)
-        clients = docMap.get(DOCID)
-
-        if(clients.includes(UID)) { 
-            let index = clients.indexOf(UID)
-            docMap.get(DOCID).splice(index, 1)
-            userMap.get(UID).end()
-            userMap.delete(UID)
-        }   
-        userID = req.cookies['id'];
-
-        let user = await User.findById(userID);
-    
-        let name = user.name
-    
-        for(let i = 0; i < clients.length; i++) {
-            id = clients[i]
-            stream = userMap.get(id)
-            if (id === UID) {
-                continue
-            }
-            else {
-                let data = {id: UID,
-                            cursor: null}
-                stream.write(`data: ${JSON.stringify(data)}\n\n`)
-            }
-        }
-    })
-
-    if(docMap.has(DOCID)) {
-        clients = docMap.get(DOCID)
-        if(!clients.includes(UID)) {
-            docMap.get(DOCID).push(UID)
-        }
+    let doc
+    if(docIDToUserMap.has(DOCID)) {
+        docIDToUserMap.get(DOCID).push(UID)
     }
     else {
         console.log("opening new doc")
-        docMap.set(DOCID,[UID])
+        docIDToUserMap.set(DOCID,[UID])
     }
-
-    userMap.set(UID, res)
-
-    let doc = connection.get('docs', DOCID)
-    doc.fetch(() => {
-        if(doc._type === null) {
-            res.write(`data: ${JSON.stringify({error: true, msg: "Cannot connect to a doc that has not been created"})}`)
-        }
-
+    if(docIDToDocMap.has(DOCID)) {
+        doc = docIDToDocMap.get(DOCID)
         // send starting doc 
         data = {content: doc.data.ops, version: doc.version} 
         res.write(`data: ${JSON.stringify(data)}\n\n`)
-    }) 
+    }
+    else {
+        doc = connection.get('docs', DOCID)
+        doc.fetch(() => {
+            if(doc._type === null) {
+                return res.write(`data: ${JSON.stringify({error: true, msg: "Cannot connect to a doc that has not been created"})}`)
+            }
+    
+            docIDToDocMap.set(DOCID, doc)
+                
+            // send starting doc 
+            data = {content: doc.data.ops, version: doc.version} 
+            res.write(`data: ${JSON.stringify(data)}\n\n`)
+        })    
+    }
+
+    userToStreamMap.set(UID, res)
+
+    res.on("close", async ()=> {
+        console.log(`Connection ${UID} CLOSED`)
+        clients = docIDToUserMap.get(DOCID)
+ 
+        let index = clients.indexOf(UID)
+        docIDToUserMap.get(DOCID).splice(index, 1)
+        
+        if(docIDToUserMap.get(DOCID).length == 0) {
+            docIDToDocMap.delete(DOCID)
+            docIDToUserMap.delete(DOCID)
+        }
+    
+        userToStreamMap.get(UID).end()
+        userToStreamMap.delete(UID)
+    })
 })
 
 app.post('/doc/op/:DOCID/:UID', function(req, res) {
-    res.set({'X-CSE356': '620bd941dd38a6610218bb1b'})
+    res.set('X-CSE356', '620bd941dd38a6610218bb1b')
     if(!req.cookies['id']) {
-        res.json({error: true, message: "/doc/op call does not have proper authentication"})
+        return res.json({error: true, message: "/doc/op call does not have proper authentication"})
     }
 
     let {DOCID, UID} = req.params
     let {version, op} = req.body
-    console.log(`got EDIT OP on doc ${DOCID} from connection ${UID}`)
-    console.log(`version: ${version}, op: ${JSON.stringify(op)}`)
+    // console.log(`got EDIT OP on doc ${DOCID} from connection ${UID}`)
+    // console.log(`version: ${version}, op: ${JSON.stringify(op)}`)
 
-    let clients = docMap.get(DOCID)
-    if (!clients) {
-        return res.json({error: true, msg: "Cannot edit a doc with no open connections"})
+    // let clients = docIDToUserMap.get(DOCID)
+    // if (!clients) {
+    //     return res.json({error: true, msg: "Cannot edit a doc with no open connections"})
+    // }
+
+    let doc = docIDToDocMap.get(DOCID)
+    // if (doc === undefined) {
+    //     return res.json({error: true, msg: "Cannot edit a doc that isn't open"})
+    // }
+
+    if(doc.version !== version) {
+        // console.log("Version mismatch!")
+        return res.json({status: 'retry'})
     }
 
-    let doc = connection.get('docs', DOCID)
-    doc.fetch(() => {
-        if (doc._type === null) {
-            return res.json({error: true, msg: "Cannot edit a doc that has not been created"})
-        }
-
-        if(doc.version !== version) {
-            console.log("Version mismatch!")
-            return res.json({status: 'retry'})
-        }
-
-        doc.submitOp(op, {}, ()=>{
-            console.log(`applied op: ${JSON.stringify(op)}`)
-
-            for(let i = 0; i < clients.length; i++) {
-                id = clients[i]
-                stream = userMap.get(id)
-                let data
-                if (id === UID) {
-                    console.log("sending ack")
-                    data = {ack:op}
-                    stream.write(`data: ${JSON.stringify(data)}\n\n`)
-                }
-                else {
-                    console.log("sending op to other clients")
-                    data = op
-                    stream.write(`data: ${JSON.stringify(data)}\n\n`)
-                }
+    doc.submitOp(op, {}, ()=>{
+        console.log(`applied op: ${JSON.stringify(op)}`)
+        for(let i = 0; i < clients.length; i++) {
+            id = clients[i]
+            stream = userToStreamMap.get(id)
+            let data
+            if (id === UID) {
+                console.log("sending ack")
+                data = {ack:op}
+                stream.write(`data: ${JSON.stringify(data)}\n\n`)
             }
-        })
-
-        return res.json({status: 'ok'}).end()
+            else {
+                console.log("sending op to other clients")
+                data = op
+                stream.write(`data: ${JSON.stringify(data)}\n\n`)
+            }
+        }
+        return res.json({status: 'ok'})
     })
+
 })
 
 app.post('/doc/presence/:DOCID/:UID', async function(req, res) {
-    res.set({'X-CSE356': '620bd941dd38a6610218bb1b'})
+    res.set('X-CSE356', '620bd941dd38a6610218bb1b')
     if(!req.cookies['id']) {
-        res.json({error: true, message: "/doc/presence call does not have proper authentication"})
+        return res.json({error: true, message: "/doc/presence call does not have proper authentication"})
     }
-
 
     let {DOCID, UID} = req.params
     let {index, length} = req.body
@@ -506,26 +499,28 @@ app.post('/doc/presence/:DOCID/:UID', async function(req, res) {
     let user = await User.findById(userID);
 
     if(!user) {
-        res.json({error: true, message: "/doc/presence user does not exist"})
+        return res.json({error: true, message: "/doc/presence user does not exist"})
     }
 
     let name = user.name
 
-    let clients = docMap.get(DOCID)
+    let clients = docIDToUserMap.get(DOCID)
     for(let i = 0; i < clients.length; i++) {
         id = clients[i]
-        stream = userMap.get(id)
+        stream = userToStreamMap.get(id)
         if (id === UID) {
             continue
         }
         else {
-            let data = {id: UID,
-                        cursor: {index: index, length: length, name: name}}
+            console.log(`Sending presence info to ${id}`)
+            console.log(`presence: {}`)
+            let data = {presence: {id: UID,
+                                    cursor: {index: index, length: length, name: name}}}
             stream.write(`data: ${JSON.stringify(data)}\n\n`)
         }
     }
 
-    res.json({}).end
+    res.json({})
 })  
 
 app.get('/doc/get/:DOCID/:UID', function(req, res) {
@@ -545,8 +540,8 @@ app.get('/doc/get/:DOCID/:UID', function(req, res) {
             'X-CSE356': '620bd941dd38a6610218bb1b',
             'Content-Type': 'text/html',
         });
-        res.send(html).end()  
+        res.send(html)
     })
 })
 
-app.listen(PORT, () => console.log(`Server listening on http://localhost:${PORT}`))
+app.listen(PORT, '209.94.57.186', () => console.log(`Server listening on http://209.94.57.186:${PORT}`))
