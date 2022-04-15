@@ -160,7 +160,8 @@ app.get('/users/verify', async function (req, res) {
         user.verified = true
         user.save()
 
-        return res.redirect('/home').end()
+        res.cookie('id', user._id);
+        return res.redirect('/home')
     })
 })
 
@@ -393,7 +394,6 @@ app.get('/doc/connect/:DOCID/:UID', async function(req, res) {
     doc.fetch(() => {
         if(doc._type === null) {
             res.write(`data: ${JSON.stringify({error: true, msg: "Cannot connect to a doc that has not been created"})}`)
-            return  
         }
 
         // send starting doc 
