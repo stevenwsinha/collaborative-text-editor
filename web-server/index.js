@@ -387,7 +387,6 @@ app.get('/doc/connect/:DOCID/:UID', function(req, res) {
       });
     res.flushHeaders();
 
-    let doc
     if(docIDToUserMap.has(DOCID)) {
         docIDToUserMap.get(DOCID).push(UID)
     }
@@ -395,26 +394,20 @@ app.get('/doc/connect/:DOCID/:UID', function(req, res) {
         console.log("opening new doc")
         docIDToUserMap.set(DOCID,[UID])
     }
-    if(docIDToVersion.has(DOCID)) {
-        let version = docIDToVersion.get(DOCID)
-        // send starting doc 
-        data = {content: doc.data.ops, version: version} 
-        res.write(`data: ${JSON.stringify(data)}\n\n`)
-    }
-    else {
-        doc = connection.get('docs', DOCID)
-        doc.fetch(() => {
-            if(doc._type === null) {
-                return res.write(`data: ${JSON.stringify({error: true, msg: "Cannot connect to a doc that has not been created"})}`)
-            }
-    
+    doc = connection.get('docs', DOCID)
+    doc.fetch(() => {
+        if(doc._type === null) {
+            return res.write(`data: ${JSON.stringify({error: true, msg: "Cannot connect to a doc that has not been created"})}`)
+        }
+
+        if(!docIDToVersion.has(DOCID)) {
             docIDToVersion.set(DOCID, doc.version)
-                
-            // send starting doc 
-            data = {content: doc.data.ops, version: doc.version} 
-            res.write(`data: ${JSON.stringify(data)}\n\n`)
-        })    
-    }
+        }
+            
+        // send starting doc 
+        data = {content: doc.data.ops, version: doc.version} 
+        res.write(`data: ${JSON.stringify(data)}\n\n`)
+    })    
 
     userToStreamMap.set(UID, res)
 
@@ -429,7 +422,7 @@ app.get('/doc/connect/:DOCID/:UID', function(req, res) {
             docIDToVersion.delete(DOCID)
             docIDToUserMap.delete(DOCID)
         }
-    
+
         userToStreamMap.get(UID).end()
         userToStreamMap.delete(UID)
     })
@@ -437,6 +430,7 @@ app.get('/doc/connect/:DOCID/:UID', function(req, res) {
 
 app.post('/doc/op/:DOCID/:UID', function(req, res) {
     res.set('X-CSE356', '620bd941dd38a6610218bb1b')
+    
     if(!req.cookies['id']) {
         return res.json({error: true, message: "/doc/op call does not have proper authentication"})
     }
@@ -449,7 +443,7 @@ app.post('/doc/op/:DOCID/:UID', function(req, res) {
 
     docVersion = docIDToVersion.get(DOCID)
     if(version !== docVersion) {
-        // console.log("Version mismatch!")
+        console.log("Version mismatch!")
         return res.json({status: 'retry'})
     }
    
@@ -465,7 +459,7 @@ app.post('/doc/op/:DOCID/:UID', function(req, res) {
     // }
 
     doc.submitOp(op)
-    docIDToVersion.set(DOCID, docVersion++)
+    docIDToVersion.set(DOCID, ++docVersion)
 
     let clients = docIDToUserMap.get(DOCID)
     console.log(`applied op: ${JSON.stringify(op)}`)
@@ -474,12 +468,12 @@ app.post('/doc/op/:DOCID/:UID', function(req, res) {
         stream = userToStreamMap.get(id)
         let data
         if (id === UID) {
-            console.log("sending ack")
+            console.log(`sending ack to ${id}`)
             data = {ack:op}
             stream.write(`data: ${JSON.stringify(data)}\n\n`)
         }
         else {
-            console.log("sending op to other clients")
+            console.log(`sending op to ${id}`)
             data = op
             stream.write(`data: ${JSON.stringify(data)}\n\n`)
         }
@@ -550,4 +544,4 @@ app.get('/doc/get/:DOCID/:UID', function(req, res) {
     })
 })
 
-app.listen(PORT, () => console.log(`Server listening on http://209.94.57.186:${PORT}`))
+app.listen(PORT, () => console.log(`Server listening on http://localhost:${PORT}`))
