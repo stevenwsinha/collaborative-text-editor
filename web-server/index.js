@@ -19,14 +19,14 @@ const {User, DocName} = require('./db.js')
 
 // EXPRESS PEPEGA
 const app = express()
-const PORT = process.env.PORT || 80
+const PORT = process.env.PORT || 3000
 
 /*
  *  CREATE MAP OF OPEN DOCUMENTS TO UIDs, AND UIDs TO STREAMS
  */
 const docIDToUserMap = new Map()
 const userToStreamMap = new Map()
-const docIDToDocMap = new Map()
+const docIDToVersion = new Map()
 
 /*
  *  CREATE CONNECTION TO MONGODB
@@ -300,6 +300,7 @@ app.get('/home', function (req, res) {
  */
 
 const multer = require('multer');
+const { version } = require('os');
 
 let storage = multer.diskStorage({
     destination: function (req, file, cb) {
@@ -394,10 +395,10 @@ app.get('/doc/connect/:DOCID/:UID', function(req, res) {
         console.log("opening new doc")
         docIDToUserMap.set(DOCID,[UID])
     }
-    if(docIDToDocMap.has(DOCID)) {
-        doc = docIDToDocMap.get(DOCID)
+    if(docIDToVersion.has(DOCID)) {
+        let version = docIDToVersion.get(DOCID)
         // send starting doc 
-        data = {content: doc.data.ops, version: doc.version} 
+        data = {content: doc.data.ops, version: version} 
         res.write(`data: ${JSON.stringify(data)}\n\n`)
     }
     else {
@@ -407,7 +408,7 @@ app.get('/doc/connect/:DOCID/:UID', function(req, res) {
                 return res.write(`data: ${JSON.stringify({error: true, msg: "Cannot connect to a doc that has not been created"})}`)
             }
     
-            docIDToDocMap.set(DOCID, doc)
+            docIDToVersion.set(DOCID, doc.version)
                 
             // send starting doc 
             data = {content: doc.data.ops, version: doc.version} 
@@ -425,7 +426,7 @@ app.get('/doc/connect/:DOCID/:UID', function(req, res) {
         docIDToUserMap.get(DOCID).splice(index, 1)
         
         if(docIDToUserMap.get(DOCID).length == 0) {
-            docIDToDocMap.delete(DOCID)
+            docIDToVersion.delete(DOCID)
             docIDToUserMap.delete(DOCID)
         }
     
@@ -442,43 +443,48 @@ app.post('/doc/op/:DOCID/:UID', function(req, res) {
 
     let {DOCID, UID} = req.params
     let {version, op} = req.body
+   
+    let doc = connection.get('docs', DOCID);
+    doc.fetch()
+
+    docVersion = docIDToVersion.get(DOCID)
+    if(version !== docVersion) {
+        // console.log("Version mismatch!")
+        return res.json({status: 'retry'})
+    }
+   
     // console.log(`got EDIT OP on doc ${DOCID} from connection ${UID}`)
     // console.log(`version: ${version}, op: ${JSON.stringify(op)}`)
 
-    // let clients = docIDToUserMap.get(DOCID)
     // if (!clients) {
     //     return res.json({error: true, msg: "Cannot edit a doc with no open connections"})
     // }
 
-    let doc = docIDToDocMap.get(DOCID)
     // if (doc === undefined) {
     //     return res.json({error: true, msg: "Cannot edit a doc that isn't open"})
     // }
 
-    if(doc.version !== version) {
-        // console.log("Version mismatch!")
-        return res.json({status: 'retry'})
-    }
+    doc.submitOp(op)
+    docIDToVersion.set(DOCID, docVersion++)
 
-    doc.submitOp(op, {}, ()=>{
-        console.log(`applied op: ${JSON.stringify(op)}`)
-        for(let i = 0; i < clients.length; i++) {
-            id = clients[i]
-            stream = userToStreamMap.get(id)
-            let data
-            if (id === UID) {
-                console.log("sending ack")
-                data = {ack:op}
-                stream.write(`data: ${JSON.stringify(data)}\n\n`)
-            }
-            else {
-                console.log("sending op to other clients")
-                data = op
-                stream.write(`data: ${JSON.stringify(data)}\n\n`)
-            }
+    let clients = docIDToUserMap.get(DOCID)
+    console.log(`applied op: ${JSON.stringify(op)}`)
+    for(let i = 0; i < clients.length; i++) {
+        id = clients[i]
+        stream = userToStreamMap.get(id)
+        let data
+        if (id === UID) {
+            console.log("sending ack")
+            data = {ack:op}
+            stream.write(`data: ${JSON.stringify(data)}\n\n`)
         }
-        return res.json({status: 'ok'})
-    })
+        else {
+            console.log("sending op to other clients")
+            data = op
+            stream.write(`data: ${JSON.stringify(data)}\n\n`)
+        }
+    }
+    return res.json({status: 'ok'})
 
 })
 
@@ -544,4 +550,4 @@ app.get('/doc/get/:DOCID/:UID', function(req, res) {
     })
 })
 
-app.listen(PORT, '209.94.57.186', () => console.log(`Server listening on http://209.94.57.186:${PORT}`))
+app.listen(PORT, () => console.log(`Server listening on http://209.94.57.186:${PORT}`))
