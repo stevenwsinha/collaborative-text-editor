@@ -37,20 +37,21 @@ app.post('/collection/create', async function (req, res) {
     let {name} = req.body;
     console.log(`Received CREATE DOC request with doc name ${name}`)
 
-    let docName = new DocName({name})
+    let docid = Math.floor(Math.random() * 10000000).toString();
+    let docName = new DocName({docid, name})
     docName.save()
 
-    let doc = connection.get('docs', docName.id);
+    let doc = connection.get('docs', docid);
     doc.create([], 'rich-text');
 
-    return res.json({docid: docName.id})
+    return res.json({docid: docid})
 })
 
 app.post('/collection/delete', async function (req, res) {
     let {docid} = req.body;
     console.log(`Received DELETE DOC request with doc id ${docid}`)
 
-    await DocName.deleteOne({_id: docid});
+    await DocName.deleteOne({docid: docid});
 
     let doc = connection.get('docs', docid);
     doc.fetch(()=>{
@@ -71,7 +72,8 @@ app.get('/collection/list', async function (req, res) {
 
     for(let i = 0; i < data.length; i++){
         id = data[i]._id
-        let namePair = await DocName.findById(id);
+        console.log(id)
+        let namePair = await DocName.findOne({docid: id});
         let name = namePair.name;
         pairs.push({id: id, name: name})
     }

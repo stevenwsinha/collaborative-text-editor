@@ -17,6 +17,7 @@ const db = mongoose.connection;
 
 
 const docNameScheme = new mongoose.Schema({
+    docid: String,
     name: String,
 })
 
