@@ -12,7 +12,7 @@ mongoose
 const db = mongoose.connection;
 
 /*
- * USER AND GAME SCHEMAS
+ * USER SCHEMAS
  */ 
 
 const userSchema = new mongoose.Schema({
