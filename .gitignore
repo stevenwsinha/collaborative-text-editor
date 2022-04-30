@@ -1,4 +1,6 @@
 # node modules
 */node_modules
 
-web-server/uploads/
+*/uploads/
+/web-server/elasticauth
+ideas.txt
