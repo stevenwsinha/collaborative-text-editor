@@ -127,6 +127,15 @@ app.get('/users/verify', async function (req, res) {
     })
 })
 
+app.post('/users/retrieve', async function(req, res) {
+    let {id} = req.body;
+    console.log(`got retrieve request for user with id: ${id}`)
+    
+    await User.findById(id).then((user) => {
+        return res.json({user: user})
+    })
+})
+
 /*
  *  FUNCTION TO SEND A VERIFICATION EMAIL
  */
@@ -135,8 +144,8 @@ function send_email(email, id, key) {
     let verification_link = "http://curve-blesser.cse356.compas.cs.stonybrook.edu/users/verify?id=" + id + "&key=" + key
 
     let mailOptions = {
-        from: '"" <curve-blesser@curve-blesser.cse356.compas.cs.stonybrook.edu>',
-        to: email, 
+        from: '"curve-blesser" <curve-blesser@curve-blesser.cse356.compas.cs.stonybrook.edu>',
+        to: email,
         subject: "verification link",
         text: verification_link
     }
