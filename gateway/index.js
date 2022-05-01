@@ -1,9 +1,12 @@
 const express = require('express')
 const httpProxy = require('express-http-proxy')
+const path = require('path');
 const bodyParser = require('body-parser')
 const cookieParser = require('cookie-parser')
 
 const app = express()
+app.use(express.static("./"))
+
 app.use(bodyParser.json());
 app.use(cookieParser())
 const PORT = process.env.PORT || 3000
@@ -46,6 +49,10 @@ app.post("/collection/create", auth, async function (req, res) {
 
 app.all("/media/*", auth, async function (req, res) {
     mediaProxy(req, res)
+})
+
+app.get("/doc/edit/:DOCID", auth, async function (req, res) {
+    res.sendFile(path.join(__dirname, "/docfiles/doc.html"))
 })
 
 app.all("/doc/*", auth, async function (req, res) {
