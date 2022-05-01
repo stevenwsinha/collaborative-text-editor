@@ -135,7 +135,7 @@ function send_email(email, id, key) {
     let verification_link = "http://curve-blesser.cse356.compas.cs.stonybrook.edu/users/verify?id=" + id + "&key=" + key
 
     let mailOptions = {
-        from: '"curve-blesser" <curve-blesser@curve-blesser.cse356.compas.cs.stonybrook.edu/>',
+        from: '"" <curve-blesser@curve-blesser.cse356.compas.cs.stonybrook.edu>',
         to: email, 
         subject: "verification link",
         text: verification_link
