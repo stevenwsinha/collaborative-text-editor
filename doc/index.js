@@ -4,10 +4,17 @@ const sharedbClient = require('sharedb/lib/client')
 const richText = require('rich-text');
 var QuillDeltaToHtmlConverter = require('quill-delta-to-html').QuillDeltaToHtmlConverter;
 const WebSocket = require('ws');
+const cookieParser = require('cookie-parser');  
+const axios = require('axios')
+const axios_instance = axios.create({
+    baseURL: 'http://localhost:5000',
+    timeout: 1000,
+})
 
 const app = express()
 const PORT = process.env.PORT || 7000
 app.use(bodyParser.json());
+app.use(cookieParser())
 
 /*
  *  CREATE CONNECTION TO SHAREDB SERVER
@@ -143,31 +150,38 @@ app.post('/doc/presence/:DOCID/:UID', async function(req, res) {
 
     userID = req.cookies['id'];
 
-    let user = await User.findById(userID);
+    axios_instance.post("/users/retrieve", {
+        id: userID
+    }).then(function (response) {
+        let user = response.data.user
 
-    if(!user) {
-        return res.json({error: true, message: "/doc/presence user does not exist"})
-    }
-
-    let name = user.name
-
-    let clients = docIDToUserMap.get(DOCID)
-    for(let i = 0; i < clients.length; i++) {
-        id = clients[i]
-        stream = userToStreamMap.get(id)
-        if (id === UID) {
-            continue
+        if(!user) {
+            return res.json({error: true, message: "/doc/presence user does not exist"})
         }
-        else {
-            console.log(`Sending presence info to ${id}`)
-            console.log(`presence: {}`)
-            let data = {presence: {id: UID,
-                                    cursor: {index: index, length: length, name: name}}}
-            stream.write(`data: ${JSON.stringify(data)}\n\n`)
-        }
-    }
+    
+        let name = user.name
+    
+        let clients = docIDToUserMap.get(DOCID)
+        for(let i = 0; i < clients.length; i++) {
+            id = clients[i]
+            stream = userToStreamMap.get(id)
+            if (id === UID) {
+                continue
+            }
+            else {
+                console.log(`Sending presence info to ${id}`)
+                console.log(`presence: {}`)
+                let data = {presence: {id: UID,
+                                        cursor: {index: index, length: length, name: name}}}
+                stream.write(`data: ${JSON.stringify(data)}\n\n`)
+            }
+        }    
+        res.json({})
 
-    res.json({})
+    }).catch(function (error) {
+        console.log(error)
+        res.json({error: true, message: "couldn't find user with this id"})
+    })
 })  
 
 app.get('/doc/get/:DOCID/:UID', function(req, res) {
