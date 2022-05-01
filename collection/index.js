@@ -6,7 +6,7 @@ const richText = require('rich-text');
 const WebSocket = require('ws');
 
 const app = express()
-const PORT = process.env.PORT || 3000
+const PORT = process.env.PORT || 4000
 app.use(bodyParser.json());
 
 /*
@@ -34,6 +34,7 @@ const {DocName} = require('./docnamedb.js')
  */
 
 app.post('/collection/create', async function (req, res) {
+    console.log(req.body)
     let {name} = req.body;
     console.log(`Received CREATE DOC request with doc name ${name}`)
 

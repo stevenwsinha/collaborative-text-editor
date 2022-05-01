@@ -6,7 +6,7 @@ const mime = require('mime');
 const multer = require('multer');
 
 const app = express()
-const PORT = process.env.PORT || 3000
+const PORT = process.env.PORT || 6000
 app.use(bodyParser.json());
 
 /*

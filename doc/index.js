@@ -6,7 +6,7 @@ var QuillDeltaToHtmlConverter = require('quill-delta-to-html').QuillDeltaToHtmlC
 const WebSocket = require('ws');
 
 const app = express()
-const PORT = process.env.PORT || 3000
+const PORT = process.env.PORT || 7000
 app.use(bodyParser.json());
 
 /*

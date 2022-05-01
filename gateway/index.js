@@ -35,15 +35,15 @@ function auth(req, res, next) {
  *  DEFINE ALL OUR PROXIES
  */
 const collectionsProxy = httpProxy('localhost:4000')
-//const usersProxy = httpProxy('localhost:5000')
-//const mediaProxy = httpProxy('localhost:6000')
+const usersProxy = httpProxy('localhost:5000')
+const mediaProxy = httpProxy('localhost:6000')
 const docProxy = httpProxy('localhost:7000')
 
 app.all("/users/*", async function (req, res) {
     usersProxy(req, res)
 })
 
-app.post("/collection/create", auth, async function (req, res) {
+app.all("/collection/*", auth, async function (req, res) {
     collectionsProxy(req, res)
 })
 
