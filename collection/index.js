@@ -34,7 +34,6 @@ const {DocName} = require('./docnamedb.js')
  */
 
 app.post('/collection/create', async function (req, res) {
-    console.log(req.body)
     let {name} = req.body;
     console.log(`Received CREATE DOC request with doc name ${name}`)
 
