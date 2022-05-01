@@ -59,7 +59,7 @@ app.post('/users/signup', async function (req, res) {
     }
 
     // CALL EMAIL FUNCTION HERE
-    //send_email(newUser.email, newUser._id, key)
+    send_email(newUser.email, newUser._id, key)
 
     res.status(200).json({})
 })
@@ -132,12 +132,10 @@ app.get('/users/verify', async function (req, res) {
  */
 function send_email(email, id, key) {
     //let encoded_email = encodeURIComponent(email)
-    let verification_link = "http://smoge.cse356.compas.cs.stonybrook.edu/users/verify?id=" + id + "&key=" + key
-onsole.log(`SENT TO: ${email}`)
-    console.log(`LINK BEING SENT: ${verification_link}`)
+    let verification_link = "http://curve-blesser.cse356.compas.cs.stonybrook.edu/users/verify?id=" + id + "&key=" + key
 
     let mailOptions = {
-        from: '"smoge" <smoge@smoge.cse356.compas.cs.stonybrook.edu>',
+        from: '"curve-blesser" <curve-blesser@curve-blesser.cse356.compas.cs.stonybrook.edu/>',
         to: email, 
         subject: "verification link",
         text: verification_link
