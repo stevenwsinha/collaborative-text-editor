@@ -4,10 +4,12 @@ const bodyParser = require('body-parser')
 const { promises: Fs } = require('fs')
 const mime = require('mime');
 const multer = require('multer');
+const cookieParser = require('cookie-parser');  
 
 const app = express()
 const PORT = process.env.PORT || 6000
 app.use(bodyParser.json());
+app.use(cookieParser())
 
 /*
  *  MULTER STORAGE CONFIG
@@ -28,14 +30,15 @@ let storage = multer.diskStorage({
  */
 
 function checkFileType(file, cb) {
-    const filetypes = /jpg|jpeg|png|gif/;
+    const filetypes = /jpg|jpeg|png/;
     const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
     const mimetype = filetypes.test(file.mimetype);
   
     if (extname && mimetype) {
       return cb(null, true);
     } else {
-      cb(null, false);
+        console.log("invalid file type")
+        cb(null, false);
     }
 }
 
@@ -54,8 +57,13 @@ const upload = multer({ storage: storage,
  *  ROUTE TO UPLOAD NEW FILE
  */
 app.post("/media/upload", upload.single('file'), function (req, res) {
+    res.set('X-CSE356', '620bd941dd38a6610218bb1b')
+    if(!req.cookies['id']) {
+        return res.json({error: true, message: "received api call without authorization"})
+    }
     console.log("Received image upload")
     if(!req.file) {
+        console.log("no file")
         return res.json({error: true, message: "invalid upload file"})
     }
     let mediaid = req.file.path.substring(req.file.path.indexOf("/")+1)
@@ -66,6 +74,10 @@ app.post("/media/upload", upload.single('file'), function (req, res) {
  *  ROUTE TO ACCESS FILE 
  */
 app.get('/media/access/:MEDIAID', async function (req, res) {
+    res.set('X-CSE356', '620bd941dd38a6610218bb1b')
+    if(!req.cookies['id']) {
+        return res.json({error: true, message: "received api call without authorization"})
+    }
     let {MEDIAID} = req.params
     console.log(`Received image access for image with id: ${MEDIAID}`)
     let extension = MEDIAID.substring(MEDIAID.indexOf("."))
@@ -73,6 +85,7 @@ app.get('/media/access/:MEDIAID', async function (req, res) {
     
     try {
         await Fs.access(pathname)
+        console.log(`found file at ${pathname}, sending it with mimetype: ${mime.getType(extension)}`)
         res.setHeader("Content-Type", mime.getType(extension))
         res.sendFile(path.join(__dirname, pathname))
     }
