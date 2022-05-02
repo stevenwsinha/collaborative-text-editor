@@ -4,10 +4,18 @@ const sharedbClient = require('sharedb/lib/client')
 const richText = require('rich-text');
 var QuillDeltaToHtmlConverter = require('quill-delta-to-html').QuillDeltaToHtmlConverter;
 const WebSocket = require('ws');
-const cookieParser = require('cookie-parser');  
+const cookieParser = require('cookie-parser');
+var cron = require('node-cron');
+cron.schedule('*/10 * * * * *', indexDocs); // every 10 seconds
+    
 const axios = require('axios')
-const axios_instance = axios.create({
+const axios_user = axios.create({
     baseURL: 'http://localhost:5000',
+    timeout: 1000,
+})
+
+const axios_index = axios.create({
+    baseURL: 'http://localhost:9000',
     timeout: 1000,
 })
 
@@ -25,14 +33,16 @@ let connection = new sharedbClient.Connection(ws);
 console.log("Connected to sharedb server")
 
 /*
- *  GLOBAL MAPS
- *  OPEN DOC -> CONNECTED USERS
- *  USER -> EVENT STREAM
- *  OPEN DOC -> DOC VERSION
+ *  GLOBAL STRUCTURES
+ *  OPEN DOC -> CONNECTED USERS MAP
+ *  USER -> EVENT STREAM MAP
+ *  OPEN DOC -> DOC VERSION MAP
+ *  LIST OF DOCIDs TO REINDEX
  */
 const docIDToUserMap = new Map()
 const userToStreamMap = new Map()
 const docIDToVersion = new Map()
+const changedDocs = new Set()
 
 /*
  *  SET UP DOC EDIT ROUTING
@@ -119,6 +129,7 @@ app.post('/doc/op/:DOCID/:UID', function(req, res) {
 
     doc.submitOp(op)
     docIDToVersion.set(DOCID, ++docVersion)
+    changedDocs.add(DOCID)
 
     let clients = docIDToUserMap.get(DOCID)
     console.log(`applied op: ${JSON.stringify(op)}`)
@@ -150,7 +161,7 @@ app.post('/doc/presence/:DOCID/:UID', async function(req, res) {
 
     userID = req.cookies['id'];
 
-    axios_instance.post("/users/retrieve", {
+    axios_user.post("/users/retrieve", {
         id: userID
     }).then(function (response) {
         let user = response.data.user
@@ -204,5 +215,14 @@ app.get('/doc/get/:DOCID/:UID', function(req, res) {
         res.send(html)
     })
 })
+
+function indexDocs() {
+    console.log("indexing changed documents")
+    axios_index.post("/users/retrieve", {
+        docids: changedDocs.values()
+    })
+
+    changedDocs.clear()
+}
 
 app.listen(PORT, () => console.log(`Server listening on http://localhost:${PORT}`))
