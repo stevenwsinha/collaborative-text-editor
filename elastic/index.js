@@ -19,13 +19,14 @@ app.get('/index/search', async function (req, res) {
     res.end()
 })
 
-app.get('index/suggest', async function (req, res) {
+app.get('/index/suggest', async function (req, res) {
     console.log("index suggest received")
     res.end()
 })
 
-app.post('index/docs', async function (req, res) {
+app.post('/index/docs', async function (req, res) {
     console.log("index docs received")
+    changed = req.body.docids
     res.end()
 })
 

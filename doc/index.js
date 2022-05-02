@@ -15,7 +15,7 @@ const axios_user = axios.create({
 })
 
 const axios_index = axios.create({
-    baseURL: 'http://localhost:9000',
+    baseURL: 'http://209.94.57.32:80',
     timeout: 1000,
 })
 
@@ -218,8 +218,15 @@ app.get('/doc/get/:DOCID/:UID', function(req, res) {
 
 function indexDocs() {
     console.log("indexing changed documents")
-    axios_index.post("/users/retrieve", {
-        docids: changedDocs.values()
+    changedDocs.add(10)
+    changedDocs.add(15)
+    changedDocs.add(20)
+    changed = Array.from(changedDocs.values())
+    console.log(`changed docs: ${changed}`)
+    axios_index.post("/index/docs", {
+        docids: changed
+    }).then(()=>{
+        console.log('success!')
     })
 
     changedDocs.clear()
