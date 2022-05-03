@@ -5,17 +5,9 @@ const richText = require('rich-text');
 var QuillDeltaToHtmlConverter = require('quill-delta-to-html').QuillDeltaToHtmlConverter;
 const WebSocket = require('ws');
 const cookieParser = require('cookie-parser');
-var cron = require('node-cron');
-cron.schedule('*/10 * * * * *', indexDocs); // every 10 seconds
-    
 const axios = require('axios')
 const axios_user = axios.create({
     baseURL: 'http://localhost:5000',
-    timeout: 1000,
-})
-
-const axios_index = axios.create({
-    baseURL: 'http://209.94.57.32:80',
     timeout: 1000,
 })
 
@@ -42,7 +34,7 @@ console.log("Connected to sharedb server")
 const docIDToUserMap = new Map()
 const userToStreamMap = new Map()
 const docIDToVersion = new Map()
-const changedDocs = new Set()
+let changedDocs = []
 
 /*
  *  SET UP DOC EDIT ROUTING
@@ -129,7 +121,9 @@ app.post('/doc/op/:DOCID/:UID', function(req, res) {
 
     doc.submitOp(op)
     docIDToVersion.set(DOCID, ++docVersion)
-    changedDocs.add(DOCID)
+    if(!changedDocs.indexOf(DOCID)) {
+        changedDocs.push(DOCID)
+    }
 
     let clients = docIDToUserMap.get(DOCID)
     console.log(`applied op: ${JSON.stringify(op)}`)
@@ -216,20 +210,10 @@ app.get('/doc/get/:DOCID/:UID', function(req, res) {
     })
 })
 
-function indexDocs() {
-    console.log("indexing changed documents")
-    changedDocs.add(10)
-    changedDocs.add(15)
-    changedDocs.add(20)
-    changed = Array.from(changedDocs.values())
-    console.log(`changed docs: ${changed}`)
-    axios_index.post("/index/docs", {
-        docids: changed
-    }).then(()=>{
-        console.log('success!')
-    })
-
-    changedDocs.clear()
-}
+app.get('/doc/changed', function(req, res) {
+    console.log("sending docs to index")
+    res.json({docids: changedDocs})
+    changedDocs = []
+})
 
 app.listen(PORT, () => console.log(`Server listening on http://localhost:${PORT}`))

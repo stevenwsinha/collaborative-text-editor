@@ -38,6 +38,7 @@ app.get('/index/suggest', async function (req, res) {
 app.post('/index/docs', async function (req, res) {
     console.log("index docs received")
     changed = req.body.docids
+    res.end()
 
     for (let i = 0; i < changed.length; i++) {
         docid = changed[i]
@@ -52,7 +53,6 @@ app.post('/index/docs', async function (req, res) {
             
         })    
     }
-    res.end()
 })
 
 app.listen(PORT, '209.94.57.32', () => console.log(`Server listening on http://209.94.57.32:${PORT}`))
