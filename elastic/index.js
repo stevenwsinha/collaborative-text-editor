@@ -27,7 +27,33 @@ console.log("Connected to sharedb server")
 
 app.get('/index/search', async function (req, res) {
     console.log("index search received")
-    res.end()
+    let response = await client.search({
+        query: {
+           multi_match: {
+               query: "temt",
+               fields: ["title^2", "body"],
+               fuzziness: 1,
+           }
+        },
+        highlight: {
+            fields: {
+                body: {}
+            }
+        }
+    })
+
+    results = []
+    for (let i = 0; i < response.hits.hits.length; i++) {
+        result = {
+            docid: response.hits.hits[i]._id, 
+            name: response.hits.hits[i]._source.title,
+            snippet: response.hits.hits[i].highlight.body[0]
+        }
+
+        results.push(result)
+    }
+
+    res.json(results)
 })
 
 app.get('/index/suggest', async function (req, res) {
