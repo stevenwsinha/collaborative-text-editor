@@ -72,7 +72,20 @@ app.get('/collection/list', async function (req, res) {
 
     for(let i = 0; i < data.length; i++){
         id = data[i]._id
-        console.log(id)
+        let namePair = await DocName.findOne({docid: id});
+        let name = namePair.name;
+        pairs.push({id: id, name: name})
+    }
+
+    res.send(pairs)
+})
+
+app.post('/collection/names', async function (req, res) {
+    let pairs = []
+
+    let {docids} = req.body
+    for(let i = 0; i < docids.length; i++){
+        id = docids[i]
         let namePair = await DocName.findOne({docid: id});
         let name = namePair.name;
         pairs.push({id: id, name: name})
