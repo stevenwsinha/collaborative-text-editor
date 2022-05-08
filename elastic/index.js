@@ -1,36 +1,25 @@
 const express = require('express')
 const bodyParser = require('body-parser')
-const sharedbClient = require('sharedb/lib/client')
-const richText = require('rich-text');
-const WebSocket = require('ws');
 const { Client } = require('@elastic/elasticsearch')
 const client = new Client({
     node: 'http://localhost:9200'
-})  
-
+  })
+  
 const app = express()
-const PORT = process.env.PORT || 9000
+const PORT = process.env.PORT || 80
 app.use(bodyParser.json());
-
-/*
- *  CREATE CONNECTION TO SHAREDB SERVER
- */
-sharedbClient.types.register(richText.type);
-let ws = new WebSocket('ws://localhost:8080');
-let connection = new sharedbClient.Connection(ws);
-console.log("Connected to sharedb server")
-
 
 /*
  *  ELASTIC SEARCH ROUTES
  */
 
 app.get('/index/search', async function (req, res) {
-    console.log("index search received")
+    let {q} = req.query
+    console.log(`index search received with query ${q}`)
     let response = await client.search({
         query: {
            multi_match: {
-               query: "temt",
+               query: q,
                fields: ["title^2", "body"],
                fuzziness: 1,
            }
@@ -57,9 +46,33 @@ app.get('/index/search', async function (req, res) {
 })
 
 app.get('/index/suggest', async function (req, res) {
-    console.log("index suggest received")
-    res.end()
+    let {q} = req.query
+    console.log(`index suggest received with query ${q}`)
+    let response = await client.search({
+        query: {
+            prefix: {
+                body: {
+                    value: q
+                }
+            }
+         },
+         highlight: {
+            fields: {
+                body: {}
+            }
+        }
+    })
+
+    let suggestions = []
+
+    for (let i = 0; i < response.hits.hits.length; i++) {
+        let snippet = response.hits.hits[i].highlight.body[0]
+        let suggestion = snippet.substring(snippet.indexOf("<em>") + 4, snippet.indexOf("</em>"))
+        suggestions.push(suggestion)
+    }
+    res.send(suggestions)
 })
+
 
 app.post('/index/docs', async function (req, res) {
     console.log("index docs received")
