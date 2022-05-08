@@ -40,19 +40,30 @@ app.post('/index/docs', async function (req, res) {
     changed = req.body.docids
     res.end()
 
-    for (let i = 0; i < changed.length; i++) {
-        docid = changed[i]
-        doc = connection.get('docs', docid)
-        doc.fetch(() => {
-            if(doc._type === null) {
-                return
-            }
+    // for (let i = 0; i < changed.length; i++) {
+    //     docid = changed[i]
+    //     doc = connection.get('docs', docid)
+    //     doc.fetch(() => {
+    //         if(doc._type === null) {
+    //             return
+    //         }
     
-            // index the doc
-            content = doc.data.ops
-            
-        })    
-    }
+    //         // index the doc
+    //         content = doc.data.ops 
+    //     })    
+    // }
+
+
+    // test doc indexing
+    
+    await client.index({
+        index: 'docs',
+        id: '1',
+        document: {
+            title: "title",
+            body: "full document text"
+        }
+    })
 })
 
 app.listen(PORT, '209.94.57.32', () => console.log(`Server listening on http://209.94.57.32:${PORT}`))
